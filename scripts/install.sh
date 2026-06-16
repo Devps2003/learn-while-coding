@@ -91,9 +91,15 @@ if [ "$INSTALL_CURSOR" = true ]; then
     if [ -f "$src" ]; then
       cp "$src" "${CURSOR_HOOKS_DIR}/${script}.sh"
       chmod +x "${CURSOR_HOOKS_DIR}/${script}.sh"
-      # Patch hook script to use repo hook.sh
-      sed -i.bak "s|exec \"\${SCRIPT_DIR}/../../../scripts/hook.sh\"|LEARNWHILE_HOOK_RUNNER=\"${LEARNWHILE_HOOK_RUNNER:-}\" exec \"${HOOK_SCRIPT}\"|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || \
-      sed -i '' "s|exec \"\${SCRIPT_DIR}/../../../scripts/hook.sh\"|LEARNWHILE_HOOK_RUNNER=\"${LEARNWHILE_HOOK_RUNNER:-}\" exec \"${HOOK_SCRIPT}\"|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || true
+      # Patch hook script to call repo hook.sh with hook-runner path
+      patch_line="export LEARNWHILE_HOOK_RUNNER=\"${LEARNWHILE_HOOK_RUNNER:-${REPO_ROOT}/packages/hook-runner/dist/cli.js}\"\nexec \"${HOOK_SCRIPT}\""
+      if sed --version 2>/dev/null | grep -q GNU; then
+        sed -i.bak "s|exec \"\${SCRIPT_DIR}/../../../scripts/hook.sh\"|${patch_line}|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || true
+      else
+        perl -i.bak -pe "s|exec \"\\\$\{SCRIPT_DIR\}/../../../scripts/hook.sh\"|export LEARNWHILE_HOOK_RUNNER=\"${LEARNWHILE_HOOK_RUNNER:-${REPO_ROOT}/packages/hook-runner/dist/cli.js}\"\nexec \"${HOOK_SCRIPT}\"|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || \
+        sed -i '' "s|exec \"\${SCRIPT_DIR}/../../../scripts/hook.sh\"|export LEARNWHILE_HOOK_RUNNER=\"${LEARNWHILE_HOOK_RUNNER:-${REPO_ROOT}/packages/hook-runner/dist/cli.js}\"\\
+exec \"${HOOK_SCRIPT}\"|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || true
+      fi
     fi
   done
 
