@@ -1,0 +1,109 @@
+{
+  "name": "learn-while-coding-extension",
+  "displayName": "Learn While Coding",
+  "description": "Surface engineering concepts to learn during AI-assisted coding",
+  "version": "0.2.0",
+  "publisher": "learnwhile",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Education", "Other"],
+  "keywords": ["learning", "ai", "cursor", "claude", "education"],
+  "icon": "media/icon.png",
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "learnwhile",
+          "title": "Learn While Coding",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "learnwhile": [
+        {
+          "type": "webview",
+          "id": "learnwhile.tipsPanel",
+          "name": "Learning Tips"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "learnwhile.openPanel",
+        "title": "Learn While Coding: Open Tips Panel"
+      },
+      {
+        "command": "learnwhile.setup",
+        "title": "Learn While Coding: Setup API Key"
+      },
+      {
+        "command": "learnwhile.refresh",
+        "title": "Learn While Coding: Refresh Tips"
+      },
+      {
+        "command": "learnwhile.markLearned",
+        "title": "Mark as Learned"
+      }
+    ],
+    "configuration": {
+      "title": "Learn While Coding",
+      "properties": {
+        "learnwhile.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable learning tips generation"
+        },
+        "learnwhile.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notification when new tips arrive"
+        },
+        "learnwhile.provider": {
+          "type": "string",
+          "enum": ["hosted", "anthropic", "openai", "openrouter", "groq"],
+          "default": "hosted",
+          "description": "LLM provider for tip generation"
+        },
+        "learnwhile.model": {
+          "type": "string",
+          "default": "llama-3.3-70b-versatile",
+          "description": "Model name for tip generation"
+        },
+        "learnwhile.hostedApiUrl": {
+          "type": "string",
+          "default": "https://ai-learning-ten-rose.vercel.app/api/tips",
+          "description": "Hosted API URL (uses shared LLM — no API key needed)"
+        },
+        "learnwhile.maxTipsPerTurn": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Maximum tips per agent turn"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs --watch",
+    "package": "npm run build && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/learnwhile/learn-while-coding"
+  }
+}

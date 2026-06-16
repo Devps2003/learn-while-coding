@@ -1,0 +1,31 @@
+{
+  "name": "@learnwhile/hook-runner",
+  "version": "0.1.0",
+  "description": "CLI hook runner for Learn While Coding — invoked by Cursor and Claude Code hooks",
+  "type": "module",
+  "bin": {
+    "learnwhile-hook": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@learnwhile/core": "file:../core"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  }
+}

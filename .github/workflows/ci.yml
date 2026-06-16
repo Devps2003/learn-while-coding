@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          npm install typescript@5.7.2 --save-dev
+          cd packages/core && npm install && npx tsc -p tsconfig.json
+          cd ../hook-runner && npm install file:../core && npx tsc -p tsconfig.json
+          cd ../../extension && npm install
+
+      - name: Build extension
+        run: cd extension && npm run build
+
+      - name: Package extension
+        run: cd extension && npx @vscode/vsce package --no-dependencies

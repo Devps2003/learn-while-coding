@@ -1,0 +1,12 @@
+{
+  "name": "learn-while-coding",
+  "version": "0.1.0",
+  "description": "Surface engineering concepts to learn during AI-assisted coding sessions",
+  "author": {
+    "name": "Learn While Coding"
+  },
+  "keywords": ["learning", "education", "ai", "hooks"],
+  "license": "MIT",
+  "logo": "assets/logo.svg",
+  "hooks": "./hooks/hooks.json"
+}

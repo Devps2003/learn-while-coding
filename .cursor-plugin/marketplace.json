@@ -1,0 +1,19 @@
+{
+  "name": "learn-while-coding-marketplace",
+  "owner": {
+    "name": "Learn While Coding"
+  },
+  "metadata": {
+    "description": "Learn engineering concepts while AI-assisted coding"
+  },
+  "plugins": [
+    {
+      "name": "learn-while-coding",
+      "source": "plugins/cursor",
+      "description": "Cursor hooks that generate learning tips during AI coding sessions",
+      "version": "0.1.0",
+      "license": "MIT",
+      "keywords": ["learning", "education", "ai"]
+    }
+  ]
+}

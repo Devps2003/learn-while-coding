@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "./scripts/cursor-accumulate.sh",
+        "matcher": "UserPromptSubmit"
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "./scripts/cursor-accumulate-response.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "./scripts/cursor-accumulate-edit.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": "./scripts/cursor-generate.sh"
+      }
+    ]
+  }
+}

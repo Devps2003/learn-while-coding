@@ -1,0 +1,27 @@
+{
+  "name": "learn-while-coding",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Learn engineering concepts while AI-assisted coding",
+  "scripts": {
+    "build": "npm run build --workspaces --if-present 2>/dev/null || (cd packages/core && npx tsc -p tsconfig.json && cd ../hook-runner && npx tsc -p tsconfig.json && cd ../../extension && npm run build)",
+    "build:core": "cd packages/core && npx tsc -p tsconfig.json",
+    "build:hooks": "cd packages/hook-runner && npx tsc -p tsconfig.json",
+    "build:extension": "cd extension && npm run build",
+    "package:extension": "cd extension && npm run package",
+    "publish:all": "./scripts/publish.sh"
+  },
+  "keywords": [
+    "ai",
+    "learning",
+    "cursor",
+    "vscode",
+    "claude"
+  ],
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "learn-while-coding-claude",
+  "version": "0.1.0",
+  "description": "Claude Code hooks for Learn While Coding",
+  "author": {
+    "name": "Learn While Coding"
+  },
+  "license": "MIT"
+}
