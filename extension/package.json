@@ -3,7 +3,7 @@
   "displayName": "Learn While Coding",
   "description": "Surface engineering concepts to learn during AI-assisted coding",
   "version": "0.2.0",
-  "publisher": "learnwhile",
+  "publisher": "Devps2003",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
