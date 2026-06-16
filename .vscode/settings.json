@@ -1,0 +1,8 @@
+{
+  "npm.autoDetect": "off",
+  "npm.packageManager": "npm",
+  "npm.exclude": [
+    "**/node_modules/**"
+  ],
+  "npm.scriptExplorerAction": "run"
+}

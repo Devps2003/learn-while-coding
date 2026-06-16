@@ -2,16 +2,28 @@
   "name": "learn-while-coding-extension",
   "displayName": "Learn While Coding",
   "description": "Surface engineering concepts to learn during AI-assisted coding",
-  "version": "0.2.0",
+  "version": "0.2.6",
   "publisher": "Devps2003",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Education", "Other"],
-  "keywords": ["learning", "ai", "cursor", "claude", "education"],
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "learning",
+    "ai",
+    "cursor",
+    "claude",
+    "education"
+  ],
   "icon": "media/icon.png",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:learnwhile.tipsPanel"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -46,8 +58,8 @@
         "title": "Learn While Coding: Refresh Tips"
       },
       {
-        "command": "learnwhile.markLearned",
-        "title": "Mark as Learned"
+        "command": "learnwhile.debug",
+        "title": "Learn While Coding: Debug / Show Tips"
       }
     ],
     "configuration": {
@@ -65,7 +77,13 @@
         },
         "learnwhile.provider": {
           "type": "string",
-          "enum": ["hosted", "anthropic", "openai", "openrouter", "groq"],
+          "enum": [
+            "hosted",
+            "anthropic",
+            "openai",
+            "openrouter",
+            "groq"
+          ],
           "default": "hosted",
           "description": "LLM provider for tip generation"
         },
@@ -77,7 +95,7 @@
         "learnwhile.hostedApiUrl": {
           "type": "string",
           "default": "https://ai-learning-ten-rose.vercel.app/api/tips",
-          "description": "Hosted API URL (uses shared LLM — no API key needed)"
+          "description": "Hosted API URL (no API key needed)"
         },
         "learnwhile.maxTipsPerTurn": {
           "type": "number",
@@ -104,6 +122,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/learnwhile/learn-while-coding"
+    "url": "https://github.com/Devps2003/learn-while-coding"
   }
 }

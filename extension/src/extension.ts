@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { LearnPanelProvider } from "./panel/LearnPanelProvider.js";
-import { TipWatcher, type TipTurn } from "./watcher/TipWatcher.js";
+import { LearnPanelProvider, outputChannel } from "./panel/LearnPanelProvider.js";
+import { SESSIONS_DIR, TipWatcher, readAllLatestTips, type TipTurn } from "./watcher/TipWatcher.js";
 
 const CONFIG_PATH = join(homedir(), ".learnwhile", "config.json");
 
@@ -142,12 +142,16 @@ async function runSetup(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  outputChannel.appendLine("Extension activated (v0.2.6)");
+  outputChannel.appendLine(`Sessions dir: ${SESSIONS_DIR}`);
+
   const panelProvider = new LearnPanelProvider(context.extensionUri);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       LearnPanelProvider.viewType,
-      panelProvider
+      panelProvider,
+      { webviewOptions: { retainContextWhenHidden: true } }
     )
   );
 
@@ -193,6 +197,31 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("learnwhile.refresh", () => panelProvider.refresh())
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("learnwhile.debug", async () => {
+      try {
+        const turns = await readAllLatestTips();
+        const cards = turns.reduce((n, t) => n + t.tips.length, 0);
+        const msg = `Sessions dir: ${SESSIONS_DIR}\nTurns: ${turns.length}\nTip cards: ${cards}`;
+        outputChannel.appendLine(msg);
+        outputChannel.show();
+        await vscode.window.showInformationMessage(
+          `Learn While Coding: ${cards} tips in ${turns.length} sessions`,
+          "Open Output"
+        ).then((action) => {
+          if (action === "Open Output") {
+            outputChannel.show();
+          }
+        });
+        await panelProvider.refresh();
+      } catch (err) {
+        vscode.window.showErrorMessage(`Learn While Coding debug failed: ${err}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(outputChannel);
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {

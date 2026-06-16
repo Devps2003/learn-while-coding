@@ -27,8 +27,10 @@ export async function listSessionIds(): Promise<string[]> {
   if (!existsSync(SESSIONS_DIR)) {
     return [];
   }
-  const entries = await readdir(SESSIONS_DIR);
-  return entries.filter((e) => !e.starts("."));
+  const entries = await readdir(SESSIONS_DIR, { withFileTypes: true });
+  return entries
+    .filter((d) => d.isDirectory() && d.name.charAt(0) !== ".")
+    .map((d) => d.name);
 }
 
 export async function readLatestForSession(sessionId: string): Promise<TipTurn | null> {
@@ -50,7 +52,7 @@ export async function readAllLatestTips(): Promise<TipTurn[]> {
 
   for (const id of sessionIds) {
     const turn = await readLatestForSession(id);
-    if (turn && turn.tips.length > 0) {
+    if (turn && Array.isArray(turn.tips) && turn.tips.length > 0) {
       turns.push(turn);
     }
   }
@@ -125,7 +127,7 @@ export class TipWatcher {
 
         this.lastSeen.set(sessionId, mtime);
         const turn = await readLatestForSession(sessionId);
-        if (turn && turn.tips.length > 0) {
+        if (turn && Array.isArray(turn.tips) && turn.tips.length > 0) {
           this.callback(turn);
         }
       } catch {

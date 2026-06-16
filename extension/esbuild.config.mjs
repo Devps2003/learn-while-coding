@@ -11,7 +11,7 @@ const ctx = await esbuild.context({
   platform: "node",
   target: "node20",
   sourcemap: true,
-  minify: !watch,
+  minify: false,
 });
 
 if (watch) {
