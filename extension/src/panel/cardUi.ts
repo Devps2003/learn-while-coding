@@ -1,4 +1,5 @@
 import type { Tip, TipTurn } from "../watcher/TipWatcher.js";
+import { markdownToHtml } from "./markdown.js";
 
 export function escHtml(s: string): string {
   return String(s)
@@ -62,55 +63,110 @@ function renderDepthBars(bars: number): string {
     .join("");
 }
 
+function renderKeyPoints(points: string[]): string {
+  if (!points.length) {
+    return "";
+  }
+  const items = points.map((p) => `<li>${escHtml(p)}</li>`).join("");
+  return `<div class="card-section">
+    <div class="section-label">What you should know</div>
+    <ul class="key-points">${items}</ul>
+  </div>`;
+}
+
+function renderLinks(links: string[]): string {
+  if (!links.length) {
+    return "";
+  }
+  let html = `<div class="card-section">
+    <div class="section-label">Resources</div>
+    <div class="link-list">`;
+  for (const url of links) {
+    html += `<a class="link-chip" href="#" data-url="${escHtml(url)}" title="${escHtml(url)}">
+      <span class="link-icon">↗</span>
+      <span class="link-text">${escHtml(formatLinkLabel(url))}</span>
+    </a>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function hasExpandableContent(tip: Tip): boolean {
+  return Boolean(
+    tip.body ||
+    tip.detail ||
+    tip.whatAiDid ||
+    tip.keyPoints?.length ||
+    tip.watchOut ||
+    tip.whyNow
+  );
+}
+
+function tipBodyMarkdown(tip: Tip): string {
+  return tip.body || tip.detail || tip.summary;
+}
+
 function renderCard(tip: Tip, index: number): string {
   const cat = categoryMeta(tip.category);
   const depth = depthMeta(tip.depth);
   const category = escHtml(tip.category.toLowerCase());
+  const expandable = hasExpandableContent(tip);
+  const bodyHtml = markdownToHtml(tipBodyMarkdown(tip));
 
-  let linksHtml = "";
-  if (tip.learnMore?.length) {
-    linksHtml = `<div class="card-section">
-      <div class="section-label">Resources</div>
-      <div class="link-list">`;
-    for (const url of tip.learnMore) {
-      linksHtml += `<a class="link-chip" href="#" data-url="${escHtml(url)}" title="${escHtml(url)}">
-        <span class="link-icon">↗</span>
-        <span class="link-text">${escHtml(formatLinkLabel(url))}</span>
-      </a>`;
-    }
-    linksHtml += `</div></div>`;
-  }
-
-  return `<article class="card" data-category="${category}" style="animation-delay: ${index * 40}ms">
-    <div class="card-accent"></div>
-    <header class="card-header">
-      <div class="card-meta">
-        <span class="pill pill-category">
-          <span class="pill-icon">${cat.icon}</span>
-          ${escHtml(cat.label)}
-        </span>
-        <span class="pill pill-depth" data-depth="${escHtml(tip.depth.toLowerCase())}">
-          <span class="depth-bars">${renderDepthBars(depth.bars)}</span>
-          ${escHtml(depth.label)}
-        </span>
+  const expandedSections = `
+    <div class="card-expanded">
+      <div class="card-section rich-section">
+        <div class="section-label">Full explanation</div>
+        <div class="rich-body">${bodyHtml}</div>
       </div>
-      <h2 class="card-title">${escHtml(tip.concept)}</h2>
-    </header>
-    <div class="card-body">
-      <div class="card-section">
-        <div class="section-label">Summary</div>
-        <p class="card-summary">${escHtml(tip.summary)}</p>
-      </div>
-      <div class="card-section callout">
-        <div class="section-label">Why this turn</div>
+      ${tip.whatAiDid ? `<div class="card-section agent-block">
+        <div class="section-label">What the agent did in your session</div>
+        <p class="card-agent">${escHtml(tip.whatAiDid)}</p>
+      </div>` : ""}
+      ${tip.whyNow ? `<div class="card-section callout">
+        <div class="section-label">Why this appeared now</div>
         <p class="card-why">${escHtml(tip.whyNow)}</p>
+      </div>` : ""}
+      ${renderKeyPoints(tip.keyPoints ?? [])}
+      ${tip.watchOut ? `<div class="card-section watchout-block">
+        <div class="section-label">Watch out</div>
+        <p class="card-watchout">${escHtml(tip.watchOut)}</p>
+      </div>` : ""}
+      ${renderLinks(tip.learnMore ?? [])}
+    </div>`;
+
+  return `<article class="card${expandable ? " collapsible" : ""}" data-category="${category}" style="animation-delay: ${index * 40}ms">
+    <div class="card-accent"></div>
+    <button class="card-toggle" type="button" aria-expanded="false"${expandable ? "" : " disabled"}>
+      <header class="card-header">
+        <div class="card-meta">
+          <span class="pill pill-category">
+            <span class="pill-icon">${cat.icon}</span>
+            ${escHtml(cat.label)}
+          </span>
+          <span class="pill pill-depth" data-depth="${escHtml(tip.depth.toLowerCase())}">
+            <span class="depth-bars">${renderDepthBars(depth.bars)}</span>
+            ${escHtml(depth.label)}
+          </span>
+        </div>
+        <div class="card-title-row">
+          <h2 class="card-title">${escHtml(tip.concept)}</h2>
+          ${expandable ? `<span class="expand-chevron" aria-hidden="true">▾</span>` : ""}
+        </div>
+      </header>
+      <div class="card-preview">
+        <p class="card-summary">${escHtml(tip.summary)}</p>
+        ${expandable ? `<p class="card-read-more">Click to read full explanation →</p>` : ""}
       </div>
-      ${linksHtml}
-    </div>
+    </button>
+    ${expandable ? expandedSections : renderLinks(tip.learnMore ?? [])}
     <footer class="card-footer">
+      ${expandable ? `<button class="btn-expand" type="button" data-action="expand">
+        <span class="btn-expand-label">Read full explanation</span>
+      </button>` : ""}
       <button class="btn-learned" data-concept="${escHtml(tip.concept)}" type="button">
         <span class="btn-icon">✓</span>
-        Mark as learned
+        Mark learned
       </button>
     </footer>
   </article>`;
@@ -153,6 +209,8 @@ export function renderTipsContent(turns: TipTurn[]): string {
       <span class="stat"><strong>${totalCards}</strong> concept${totalCards === 1 ? "" : "s"}</span>
       <span class="stat-dot">·</span>
       <span class="stat">${turns.length} session${turns.length === 1 ? "" : "s"}</span>
+      <span class="stat-dot">·</span>
+      <span class="stat">tap card to expand</span>
     </div>
     ${groups}`;
 }
@@ -177,7 +235,6 @@ export function renderPanelStyles(): string {
       padding: 14px 14px 10px;
       background: var(--vscode-sideBar-background);
       border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
-      backdrop-filter: blur(8px);
     }
     .panel-title {
       font-size: 13px;
@@ -216,6 +273,7 @@ export function renderPanelStyles(): string {
     #content { padding: 12px 12px 20px; }
     .stats-bar {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 6px;
       margin-bottom: 14px;
@@ -265,11 +323,12 @@ export function renderPanelStyles(): string {
       border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25));
       overflow: hidden;
       animation: cardIn 0.35s ease both;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    .card:hover {
-      border-color: var(--vscode-focusBorder, rgba(128,128,128,0.45));
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    .card:hover { border-color: var(--vscode-focusBorder, rgba(128,128,128,0.45)); }
+    .card.expanded {
+      border-color: var(--vscode-focusBorder, rgba(128,128,128,0.5));
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
     @keyframes cardIn {
       from { opacity: 0; transform: translateY(6px); }
@@ -287,7 +346,20 @@ export function renderPanelStyles(): string {
     .card[data-category="architecture"] .card-accent { background: #5b9fd4; }
     .card[data-category="security"] .card-accent { background: #e06c75; }
     .card[data-category="other"] .card-accent { background: var(--vscode-descriptionForeground); }
-    .card-header { padding: 12px 14px 0 16px; }
+    .card-toggle {
+      display: block;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+    }
+    .card-toggle:disabled { cursor: default; }
+    .card-header { padding: 12px 14px 0 16px; pointer-events: none; }
     .card-meta {
       display: flex;
       flex-wrap: wrap;
@@ -309,7 +381,6 @@ export function renderPanelStyles(): string {
       color: var(--vscode-descriptionForeground);
     }
     .pill-icon { font-size: 11px; line-height: 1; }
-    .pill-depth { gap: 6px; }
     .depth-bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 10px; }
     .depth-bar {
       display: block;
@@ -321,28 +392,125 @@ export function renderPanelStyles(): string {
     .depth-bar:nth-child(2) { height: 7px; }
     .depth-bar:nth-child(3) { height: 10px; }
     .depth-bar.filled { background: var(--vscode-textLink-foreground); }
+    .card-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
     .card-title {
       margin: 0;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       line-height: 1.35;
       color: var(--vscode-foreground);
       letter-spacing: -0.01em;
+      flex: 1;
     }
-    .card-body { padding: 10px 14px 0 16px; }
-    .card-section { margin-bottom: 10px; }
+    .expand-chevron {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      transition: transform 0.2s ease;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+    .card.expanded .expand-chevron { transform: rotate(180deg); }
+    .card-preview { padding: 10px 14px 12px 16px; pointer-events: none; }
+    .card-summary {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--vscode-foreground);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card.expanded .card-summary { -webkit-line-clamp: unset; margin-bottom: 0; }
+    .card-read-more {
+      margin: 8px 0 0;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--vscode-textLink-foreground);
+      opacity: 0.9;
+    }
+    .card.expanded .card-read-more { display: none; }
+    .card-expanded {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.25s ease;
+      padding: 0 12px 0 14px;
+    }
+    .card.expanded .card-expanded {
+      max-height: 12000px;
+      opacity: 1;
+      padding: 8px 12px 12px 14px;
+      overflow: visible;
+    }
+    .rich-section { margin-bottom: 16px; }
+    .rich-body {
+      font-size: 13px;
+      line-height: 1.72;
+      color: var(--vscode-foreground);
+    }
+    .rich-body .rich-p {
+      margin: 0 0 12px;
+    }
+    .rich-body .rich-p:last-child { margin-bottom: 0; }
+    .rich-body strong {
+      font-weight: 600;
+      color: var(--vscode-foreground);
+    }
+    .rich-body .inline-code {
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 0.92em;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--vscode-textCodeBlock-background, rgba(128,128,128,0.15));
+      color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
+    }
+    .rich-body .code-block {
+      margin: 10px 0 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--vscode-textCodeBlock-background, #1e1e1e);
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.25));
+      overflow-x: auto;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--vscode-editor-foreground, var(--vscode-foreground));
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .rich-body .code-block code { font-family: inherit; }
+    .rich-body .rich-list {
+      margin: 0 0 12px;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .rich-body .rich-list li { margin-bottom: 6px; }
+    .card-section { margin-bottom: 14px; }
     .section-label {
       font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--vscode-descriptionForeground);
-      margin-bottom: 4px;
-      opacity: 0.85;
+      margin-bottom: 8px;
+      opacity: 0.9;
     }
-    .card-summary {
+    .agent-block {
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--vscode-textLink-foreground) 8%, var(--vscode-sideBar-background));
+      border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+    }
+    .card-agent {
       margin: 0;
-      font-size: 12.5px;
+      font-size: 12px;
       line-height: 1.55;
       color: var(--vscode-foreground);
     }
@@ -358,6 +526,27 @@ export function renderPanelStyles(): string {
       line-height: 1.5;
       color: var(--vscode-descriptionForeground);
     }
+    .key-points {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--vscode-foreground);
+    }
+    .key-points li { margin-bottom: 5px; }
+    .key-points li:last-child { margin-bottom: 0; }
+    .watchout-block {
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: color-mix(in srgb, #e06c75 10%, var(--vscode-sideBar-background));
+      border-left: 2px solid #e06c75;
+    }
+    .card-watchout {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--vscode-foreground);
+    }
     .link-list { display: flex; flex-direction: column; gap: 5px; }
     .link-chip {
       display: inline-flex;
@@ -370,20 +559,36 @@ export function renderPanelStyles(): string {
       color: var(--vscode-textLink-foreground);
       background: var(--vscode-sideBar-background);
       border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
-      transition: background 0.12s ease, border-color 0.12s ease;
+      transition: background 0.12s ease;
       cursor: pointer;
     }
-    .link-chip:hover {
-      background: var(--vscode-list-hoverBackground);
-      border-color: var(--vscode-focusBorder, rgba(128,128,128,0.4));
-    }
+    .link-chip:hover { background: var(--vscode-list-hoverBackground); }
     .link-icon { font-size: 10px; opacity: 0.8; }
     .link-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .card-footer {
-      padding: 8px 14px 12px 16px;
+      padding: 6px 14px 10px 16px;
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-top: 1px solid transparent;
     }
+    .card.expanded .card-footer {
+      border-top-color: var(--vscode-widget-border, rgba(128,128,128,0.15));
+    }
+    .btn-expand {
+      padding: 4px 0;
+      border: none;
+      background: transparent;
+      color: var(--vscode-textLink-foreground);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-expand:hover { text-decoration: underline; }
+    .card.expanded .btn-expand .btn-expand-label::before { content: 'Collapse'; }
+    .card.expanded .btn-expand .btn-expand-label { font-size: 0; }
+    .card.expanded .btn-expand .btn-expand-label::before { font-size: 11px; }
     .btn-learned {
       display: inline-flex;
       align-items: center;
@@ -396,6 +601,7 @@ export function renderPanelStyles(): string {
       border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.3));
       background: transparent;
       color: var(--vscode-descriptionForeground);
+      margin-left: auto;
       transition: all 0.12s ease;
     }
     .btn-learned:hover {
@@ -409,11 +615,7 @@ export function renderPanelStyles(): string {
       padding: 32px 16px;
       color: var(--vscode-descriptionForeground);
     }
-    .empty-icon {
-      font-size: 28px;
-      opacity: 0.35;
-      margin-bottom: 12px;
-    }
+    .empty-icon { font-size: 28px; opacity: 0.35; margin-bottom: 12px; }
     .empty-title {
       margin: 0 0 8px;
       font-size: 14px;
@@ -431,17 +633,44 @@ export function renderPanelScript(): string {
       var vscode = acquireVsCodeApi();
       var content = document.getElementById('content');
 
+      function setExpanded(card, expanded) {
+        card.classList.toggle('expanded', expanded);
+        var toggle = card.querySelector('.card-toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      }
+
       function bindEvents() {
+        var cards = content.querySelectorAll('.card.collapsible');
+        for (var i = 0; i < cards.length; i++) {
+          (function(card) {
+            var toggle = card.querySelector('.card-toggle');
+            var expandBtn = card.querySelector('.btn-expand');
+            function flip(e) {
+              if (e && e.target && e.target.closest('.btn-learned')) return;
+              if (e && e.target && e.target.closest('a[data-url]')) return;
+              setExpanded(card, !card.classList.contains('expanded'));
+            }
+            if (toggle) toggle.addEventListener('click', flip);
+            if (expandBtn) expandBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              flip();
+            });
+          })(cards[i]);
+        }
+
         var links = content.querySelectorAll('a[data-url]');
-        for (var i = 0; i < links.length; i++) {
-          links[i].addEventListener('click', function(e) {
+        for (var a = 0; a < links.length; a++) {
+          links[a].addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             vscode.postMessage({ type: 'openLink', url: this.getAttribute('data-url') });
           });
         }
+
         var buttons = content.querySelectorAll('button[data-concept]');
-        for (var j = 0; j < buttons.length; j++) {
-          buttons[j].addEventListener('click', function() {
+        for (var b = 0; b < buttons.length; b++) {
+          buttons[b].addEventListener('click', function(e) {
+            e.stopPropagation();
             var btn = this;
             btn.disabled = true;
             btn.innerHTML = '<span class="btn-icon">✓</span> Learned';

@@ -108,6 +108,10 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
     await this.loadTips();
   }
 
+  clearLearned(): void {
+    this.learnedConcepts.clear();
+  }
+
   private buildHtml(turns: TipTurn[], statusMessage?: string): string {
     const contentHtml = renderTipsContent(turns);
     const statusHtml = statusMessage

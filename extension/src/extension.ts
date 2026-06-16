@@ -142,7 +142,7 @@ async function runSetup(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Extension activated (v0.2.6)");
+  outputChannel.appendLine("Extension activated (v0.3.3)");
   outputChannel.appendLine(`Sessions dir: ${SESSIONS_DIR}`);
 
   const panelProvider = new LearnPanelProvider(context.extensionUri);
@@ -196,6 +196,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("learnwhile.refresh", () => panelProvider.refresh())
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("learnwhile.resetLearned", async () => {
+      panelProvider.clearLearned();
+      await panelProvider.refresh();
+      vscode.window.showInformationMessage("Learn While Coding: restored all hidden tips");
+    })
   );
 
   context.subscriptions.push(

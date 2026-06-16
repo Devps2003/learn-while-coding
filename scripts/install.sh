@@ -107,7 +107,7 @@ exec \"${HOOK_SCRIPT}\"|" "${CURSOR_HOOKS_DIR}/${script}.sh" 2>/dev/null || true
 {
   "version": 1,
   "hooks": {
-    "beforeSubmitPrompt": [{ "command": "./hooks/cursor-accumulate.sh", "matcher": "UserPromptSubmit" }],
+    "beforeSubmitPrompt": [{ "command": "./hooks/cursor-accumulate.sh" }],
     "afterAgentResponse": [{ "command": "./hooks/cursor-accumulate-response.sh" }],
     "afterFileEdit": [{ "command": "./hooks/cursor-accumulate-edit.sh" }],
     "stop": [{ "command": "./hooks/cursor-generate.sh" }]

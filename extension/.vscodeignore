@@ -5,3 +5,5 @@ tsconfig.json
 esbuild.config.mjs
 .vscode
 **/*.map
+media/icon-256.png
+media/logo.png

@@ -7,8 +7,13 @@ import type { FSWatcher } from "node:fs";
 export interface Tip {
   concept: string;
   summary: string;
+  body?: string;
+  detail?: string;
   category: string;
   whyNow: string;
+  whatAiDid?: string;
+  keyPoints?: string[];
+  watchOut?: string;
   learnMore: string[];
   depth: string;
 }

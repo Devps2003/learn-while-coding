@@ -2,7 +2,7 @@
   "name": "learn-while-coding-extension",
   "displayName": "Learn While Coding",
   "description": "Surface engineering concepts to learn during AI-assisted coding",
-  "version": "0.2.6",
+  "version": "0.3.3",
   "publisher": "Devps2003",
   "license": "MIT",
   "engines": {
@@ -56,6 +56,10 @@
       {
         "command": "learnwhile.refresh",
         "title": "Learn While Coding: Refresh Tips"
+      },
+      {
+        "command": "learnwhile.resetLearned",
+        "title": "Learn While Coding: Show All Tips Again"
       },
       {
         "command": "learnwhile.debug",

@@ -3,8 +3,7 @@
   "hooks": {
     "beforeSubmitPrompt": [
       {
-        "command": "./scripts/cursor-accumulate.sh",
-        "matcher": "UserPromptSubmit"
+        "command": "./scripts/cursor-accumulate.sh"
       }
     ],
     "afterAgentResponse": [

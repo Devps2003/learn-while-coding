@@ -1,30 +1,7 @@
 import type { LearnWhileConfig, Tip, TipCategory, TipDepth } from "./types.js";
 import { DEFAULT_CLIENT_KEY, DEFAULT_HOSTED_API_URL } from "./constants.js";
 import { redactSecrets } from "./redact.js";
-
-const SYSTEM_PROMPT = `You are an engineering mentor. Given context from an AI-assisted coding session, identify 0-3 concepts the developer should learn to understand what happened — not just what was built.
-
-Focus on:
-- Design decisions and tradeoffs
-- New libraries, APIs, or patterns introduced
-- Security or performance implications
-- Concepts they would have researched if building manually
-
-Skip: boilerplate, obvious syntax, trivial renames, formatting.
-
-Respond with ONLY valid JSON array (no markdown):
-[
-  {
-    "concept": "Short concept name",
-    "summary": "One sentence explanation",
-    "category": "pattern|api|tooling|architecture|security|other",
-    "whyNow": "Why this appeared in this specific turn",
-    "learnMore": ["https://official-docs-url"],
-    "depth": "beginner|intermediate|advanced"
-  }
-]
-
-Return [] if nothing worth learning. Max 3 items.`;
+import { TIP_SYSTEM_PROMPT, TIP_FALLBACK_PROMPT } from "./prompt.js";
 
 function buildUserPrompt(context: {
   userPrompt?: string;
@@ -76,6 +53,34 @@ const VALID_CATEGORIES: TipCategory[] = [
 ];
 const VALID_DEPTHS: TipDepth[] = ["beginner", "intermediate", "advanced"];
 
+function parseStringArray(value: unknown, max = 5): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim())
+    .slice(0, max);
+}
+
+function buildBodyFromItem(item: Record<string, unknown>): string {
+  const paragraphs = parseStringArray(item.paragraphs, 8);
+  let body = paragraphs.length > 0 ? paragraphs.join("\n\n") : String(item.body ?? "").trim();
+
+  const codeEx = item.codeExample;
+  if (codeEx && typeof codeEx === "object") {
+    const codeObj = codeEx as Record<string, unknown>;
+    const code = String(codeObj.code ?? "").trim();
+    if (code) {
+      const lang = String(codeObj.language ?? "text");
+      body += `${body ? "\n\n" : ""}\`\`\`${lang}\n${code}\n\`\`\``;
+    }
+  }
+
+  const detail = String(item.detail ?? "").trim();
+  return body || detail;
+}
+
 function parseTips(raw: string, maxTips: number): Tip[] {
   let json = raw.trim();
   const fenceMatch = json.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -97,20 +102,32 @@ function parseTips(raw: string, maxTips: number): Tip[] {
   return parsed
     .slice(0, maxTips)
     .filter((item): item is Record<string, unknown> => item && typeof item === "object")
-    .map((item) => ({
-      concept: String(item.concept ?? "Unknown concept"),
-      summary: String(item.summary ?? ""),
-      category: VALID_CATEGORIES.includes(item.category as TipCategory)
-        ? (item.category as TipCategory)
-        : "other",
-      whyNow: String(item.whyNow ?? ""),
-      learnMore: Array.isArray(item.learnMore)
-        ? item.learnMore.filter((u): u is string => typeof u === "string").slice(0, 3)
-        : [],
-      depth: VALID_DEPTHS.includes(item.depth as TipDepth)
-        ? (item.depth as TipDepth)
-        : "intermediate",
-    }))
+    .map((item) => {
+      const summary = String(item.summary ?? "");
+      const detail = String(item.detail ?? "");
+      const whatAiDid = String(item.whatAiDid ?? "");
+      const watchOut = String(item.watchOut ?? "").trim();
+      const keyPoints = parseStringArray(item.keyPoints, 6);
+      const resolvedBody = buildBodyFromItem(item) || summary;
+
+      return {
+        concept: String(item.concept ?? "Unknown concept"),
+        summary,
+        body: resolvedBody,
+        detail: detail || summary,
+        category: VALID_CATEGORIES.includes(item.category as TipCategory)
+          ? (item.category as TipCategory)
+          : "other",
+        whyNow: String(item.whyNow ?? ""),
+        whatAiDid,
+        keyPoints,
+        watchOut: watchOut || undefined,
+        learnMore: parseStringArray(item.learnMore, 3),
+        depth: VALID_DEPTHS.includes(item.depth as TipDepth)
+          ? (item.depth as TipDepth)
+          : "intermediate",
+      };
+    })
     .filter((tip) => tip.concept && tip.summary);
 }
 
@@ -127,8 +144,8 @@ async function callAnthropic(
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      max_tokens: 4096,
+      system: TIP_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     }),
   });
@@ -155,32 +172,45 @@ async function callHosted(config: LearnWhileConfig, userPrompt: string): Promise
     headers["X-LearnWhile-Client"] = clientKey;
   }
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      prompt: userPrompt,
-      maxTips: config.maxTipsPerTurn,
-      model: config.model,
-    }),
-  });
+  async function request(systemPrompt: string): Promise<Tip[]> {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        prompt: userPrompt,
+        maxTips: config.maxTipsPerTurn,
+        model: config.model,
+        systemPrompt,
+      }),
+    });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Hosted API error ${res.status}: ${err}`);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Hosted API error ${res.status}: ${err}`);
+    }
+
+    const data = (await res.json()) as { tips?: Tip[]; raw?: string };
+    if (Array.isArray(data.tips) && data.tips.length > 0) {
+      return data.tips;
+    }
+    if (typeof data.raw === "string") {
+      return parseTips(data.raw, config.maxTipsPerTurn);
+    }
+    return [];
   }
 
-  const data = (await res.json()) as { tips?: Tip[]; raw?: string };
-  if (Array.isArray(data.tips)) {
-    return data.tips;
+  const primary = await request(TIP_SYSTEM_PROMPT);
+  if (primary.length > 0) {
+    return primary;
   }
-  if (typeof data.raw === "string") {
-    return parseTips(data.raw, config.maxTipsPerTurn);
-  }
-  return [];
+  return request(TIP_FALLBACK_PROMPT);
 }
 
-async function callGroq(config: LearnWhileConfig, userPrompt: string): Promise<string> {
+async function callGroq(
+  config: LearnWhileConfig,
+  userPrompt: string,
+  systemPrompt: string = TIP_SYSTEM_PROMPT
+): Promise<string> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -189,10 +219,10 @@ async function callGroq(config: LearnWhileConfig, userPrompt: string): Promise<s
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.3,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     }),
@@ -222,9 +252,9 @@ async function callOpenAI(
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 1024,
+      max_tokens: 4096,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: TIP_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
@@ -296,5 +326,10 @@ export async function generateTipsFromContext(
       throw new Error(`Unknown provider: ${config.provider}`);
   }
 
-  return parseTips(raw, config.maxTipsPerTurn);
+  let tips = parseTips(raw, config.maxTipsPerTurn);
+  if (tips.length === 0 && config.provider === "groq") {
+    raw = await callGroq(config, userPrompt, TIP_FALLBACK_PROMPT);
+    tips = parseTips(raw, config.maxTipsPerTurn);
+  }
+  return tips;
 }

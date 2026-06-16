@@ -4,8 +4,13 @@ export type TipDepth = "beginner" | "intermediate" | "advanced";
 export interface Tip {
   concept: string;
   summary: string;
+  body: string;
+  detail: string;
   category: TipCategory;
   whyNow: string;
+  whatAiDid: string;
+  keyPoints: string[];
+  watchOut?: string;
   learnMore: string[];
   depth: TipDepth;
 }
