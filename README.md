@@ -31,7 +31,9 @@ Install **Learn While Coding** from:
 - [Open VSX](https://open-vsx.org/extension/Devps2003/learn-while-coding-extension) (works in Cursor + VS Code)
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Devps2003.learn-while-coding-extension)
 
-In **Cursor**, the extension auto-installs hooks on first launch. You can also run **Learn While Coding: Install Hooks** from the command palette, then reload Cursor.
+In **Cursor**, hooks auto-install on first launch.
+
+In **VS Code**, Claude Code hooks auto-install; for **Copilot**, run **Learn While Coding: Generate Tips from Editor** after each session.
 
 ### 2. Platform hooks (required for auto-tips)
 
@@ -79,11 +81,11 @@ Or create `~/.learnwhile/config.json`:
 
 | Platform | Auto-tips | Notes |
 |----------|-----------|-------|
-| Cursor | Yes | Extension auto-installs hooks, or install Cursor plugin |
-| Claude Code (CLI) | Yes | Hooks in `~/.claude/settings.json` |
-| Claude Code (VS Code) | Yes | Same hooks as CLI |
-| VS Code + Copilot | Partial | No chat API — extension UI only; hooks N/A |
-| JetBrains + Claude | Yes | Shares Claude hooks |
+| **Cursor + Agent** | ✅ Automatic | Hooks auto-install — finish any Agent turn |
+| **VS Code + Claude Code** | ✅ Automatic | Hooks in `.claude/settings.json` — finish any Claude turn |
+| **VS Code + Copilot** | ✅ Automatic on save | Tips generate when you save files (or command palette) |
+
+**Install the extension → reload → done.** No API key needed (hosted API). Requires Node.js 20+ on PATH for hook-based modes.
 
 ## Privacy
 

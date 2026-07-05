@@ -1,8 +1,8 @@
 {
   "name": "learn-while-coding-extension",
   "displayName": "Learn While Coding",
-  "description": "Surface engineering concepts to learn during AI-assisted coding",
-  "version": "0.3.4",
+  "description": "Learning cards for Cursor Agent, Claude Code, and Copilot — install and go",
+  "version": "0.4.0",
   "publisher": "Devps2003",
   "license": "MIT",
   "engines": {
@@ -17,6 +17,7 @@
     "ai",
     "cursor",
     "claude",
+    "copilot",
     "education"
   ],
   "icon": "media/icon.png",
@@ -52,6 +53,14 @@
       {
         "command": "learnwhile.installHooks",
         "title": "Learn While Coding: Install Hooks"
+      },
+      {
+        "command": "learnwhile.generateFromEditor",
+        "title": "Learn While Coding: Generate Tips from Editor"
+      },
+      {
+        "command": "learnwhile.setup",
+        "title": "Learn While Coding: Setup API Key"
       },
       {
         "command": "learnwhile.refresh",
@@ -107,6 +116,11 @@
           "minimum": 1,
           "maximum": 5,
           "description": "Maximum tips per agent turn"
+        },
+        "learnwhile.autoGenerateOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Copilot mode: auto-generate learning tips when you save files"
         }
       }
     }

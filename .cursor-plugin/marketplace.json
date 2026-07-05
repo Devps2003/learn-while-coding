@@ -13,7 +13,7 @@
       "name": "learn-while-coding",
       "source": "plugins/cursor",
       "description": "Cursor hooks that generate learning tips during AI coding sessions",
-      "version": "0.3.4",
+      "version": "0.4.0",
       "license": "MIT",
       "keywords": ["learning", "education", "ai", "hooks"],
       "repository": "https://github.com/Devps2003/learn-while-coding",

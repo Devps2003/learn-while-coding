@@ -42,39 +42,62 @@ for (const out of outputs) {
   await build(out);
 }
 
-// Shell hook scripts for extension resources (installed to ~/.cursor/hooks/)
-const hookScripts = {
-  "cursor-accumulate.sh": "beforeSubmitPrompt",
-  "cursor-accumulate-response.sh": "afterAgentResponse",
-  "cursor-accumulate-edit.sh": "afterFileEdit",
-  "cursor-generate.sh": "stop",
+// Shell hook scripts for extension resources
+const cursorHookScripts = {
+  "cursor-accumulate.sh": { platform: "cursor", event: "beforeSubmitPrompt" },
+  "cursor-accumulate-response.sh": { platform: "cursor", event: "afterAgentResponse" },
+  "cursor-accumulate-edit.sh": { platform: "cursor", event: "afterFileEdit" },
+  "cursor-generate.sh": { platform: "cursor", event: "stop" },
 };
+
+const claudeHookScripts = {
+  "claude-prompt.sh": { platform: "claude", event: "beforeSubmitPrompt" },
+  "claude-tool.sh": { platform: "claude", event: "postToolUse" },
+  "claude-stop.sh": { platform: "claude", event: "stop" },
+  "claude-session-end.sh": { platform: "claude", event: "sessionEnd" },
+};
+
+function shellScript(platform, event, runnerRef) {
+  return `#!/usr/bin/env bash
+set -euo pipefail
+export LEARNWHILE_PLATFORM=${platform}
+export LEARNWHILE_EVENT=${event}
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+exec node ${runnerRef} --platform "\${LEARNWHILE_PLATFORM}" --event "\${LEARNWHILE_EVENT}"
+`;
+}
 
 const extHooksDir = join(root, "extension/resources/hooks");
 await mkdir(extHooksDir, { recursive: true });
 
-for (const [filename, event] of Object.entries(hookScripts)) {
-  const content = `#!/usr/bin/env bash
-set -euo pipefail
-export LEARNWHILE_PLATFORM=cursor
-export LEARNWHILE_EVENT=${event}
-SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-exec node "\${SCRIPT_DIR}/learnwhile-hook-runner.mjs" --platform "\${LEARNWHILE_PLATFORM}" --event "\${LEARNWHILE_EVENT}"
-`;
+for (const [filename, meta] of Object.entries(cursorHookScripts)) {
+  const content = shellScript(meta.platform, meta.event, '"${SCRIPT_DIR}/learnwhile-hook-runner.mjs"');
   const dest = join(extHooksDir, filename);
   await import("node:fs/promises").then((fs) => fs.writeFile(dest, content, { mode: 0o755 }));
   console.log(`Wrote ${dest}`);
 }
 
-// Plugin scripts (installed from Cursor marketplace — paths relative to plugin dir)
+for (const [filename, meta] of Object.entries(claudeHookScripts)) {
+  const content = shellScript(meta.platform, meta.event, '"${SCRIPT_DIR}/learnwhile-hook-runner.mjs"');
+  const dest = join(extHooksDir, filename);
+  await import("node:fs/promises").then((fs) => fs.writeFile(dest, content, { mode: 0o755 }));
+  console.log(`Wrote ${dest}`);
+}
+
+// Plugin scripts — node commands (cross-platform, no bash)
 const pluginScriptsDir = join(root, "plugins/cursor/scripts");
-for (const [filename, event] of Object.entries(hookScripts)) {
+const pluginRunner = '"${SCRIPT_DIR}/../bin/hook-runner.mjs"';
+const cursorEvents = {
+  "cursor-accumulate.sh": "beforeSubmitPrompt",
+  "cursor-accumulate-response.sh": "afterAgentResponse",
+  "cursor-accumulate-edit.sh": "afterFileEdit",
+  "cursor-generate.sh": "stop",
+};
+for (const [filename, event] of Object.entries(cursorEvents)) {
   const content = `#!/usr/bin/env bash
 set -euo pipefail
-export LEARNWHILE_PLATFORM=cursor
-export LEARNWHILE_EVENT=${event}
 SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-exec node "\${SCRIPT_DIR}/../bin/hook-runner.mjs" --platform "\${LEARNWHILE_PLATFORM}" --event "\${LEARNWHILE_EVENT}"
+exec node ${pluginRunner.replace("${SCRIPT_DIR}", "${SCRIPT_DIR}")} --platform cursor --event ${event}
 `;
   const dest = join(pluginScriptsDir, filename);
   await import("node:fs/promises").then((fs) => fs.writeFile(dest, content, { mode: 0o755 }));

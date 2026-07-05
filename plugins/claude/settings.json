@@ -2,27 +2,44 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=beforeSubmitPrompt \"$CLAUDE_PROJECT_DIR\"/scripts/hook.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=beforeSubmitPrompt bash \"${CLAUDE_PROJECT_DIR}/scripts/hook.sh\"",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "type": "command",
         "matcher": "Edit|Write",
-        "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=postToolUse \"$CLAUDE_PROJECT_DIR\"/scripts/hook.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=postToolUse bash \"${CLAUDE_PROJECT_DIR}/scripts/hook.sh\""
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=stop \"$CLAUDE_PROJECT_DIR\"/scripts/hook.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=stop bash \"${CLAUDE_PROJECT_DIR}/scripts/hook.sh\""
+          }
+        ]
       }
     ],
     "SessionEnd": [
       {
-        "type": "command",
-        "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=sessionEnd \"$CLAUDE_PROJECT_DIR\"/scripts/hook.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LEARNWHILE_PLATFORM=claude LEARNWHILE_EVENT=sessionEnd bash \"${CLAUDE_PROJECT_DIR}/scripts/hook.sh\""
+          }
+        ]
       }
     ]
   }

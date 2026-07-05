@@ -6,11 +6,16 @@ import { existsSync } from "node:fs";
 import { LearnPanelProvider, outputChannel } from "./panel/LearnPanelProvider.js";
 import { SESSIONS_DIR, TipWatcher, readAllLatestTips, type TipTurn } from "./watcher/TipWatcher.js";
 import {
-  ensureCursorHooks,
+  ensureHooks,
   getHookInstallStatus,
-  installCursorHooks,
+  installHooksForEnvironment,
+  registerWorkspaceHookRefresh,
   type HookInstallStatus,
 } from "./install/HookInstaller.js";
+import { generateTipsFromEditor } from "./tips/generateManualTips.js";
+import { registerAutoCopilotTips } from "./tips/autoCopilot.js";
+import { createStatusBar } from "./status/StatusBar.js";
+import { runHealthCheck } from "./setup/healthCheck.js";
 
 const CONFIG_PATH = join(homedir(), ".learnwhile", "config.json");
 
@@ -36,29 +41,39 @@ const DEFAULT_HOSTED_CONFIG: LearnWhileConfig = {
   clientKey: "learnwhile-v1",
 };
 
+let hookStatus: HookInstallStatus = {
+  appName: "Unknown",
+  isCursor: false,
+  isVsCode: true,
+  cursorHooksInstalled: false,
+  claudeHooksInstalled: false,
+  claudeProjectSettingsPath: null,
+  hooksInstalled: false,
+  autoTipsMode: "manual",
+  hooksDir: "",
+  configExists: false,
+  sessionsDir: SESSIONS_DIR,
+  sessionCount: 0,
+};
+
 async function loadConfigFile(): Promise<LearnWhileConfig | null> {
-  if (!existsSync(CONFIG_PATH)) {
-    return null;
-  }
+  if (!existsSync(CONFIG_PATH)) return null;
   try {
-    const raw = await readFile(CONFIG_PATH, "utf-8");
-    return JSON.parse(raw) as LearnWhileConfig;
+    return JSON.parse(await readFile(CONFIG_PATH, "utf-8")) as LearnWhileConfig;
   } catch {
     return null;
   }
 }
 
 async function saveConfigFile(config: LearnWhileConfig): Promise<void> {
-  const dir = join(homedir(), ".learnwhile");
-  await mkdir(dir, { recursive: true });
+  await mkdir(join(homedir(), ".learnwhile"), { recursive: true });
   await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
 }
 
 async function syncConfigFromSettings(): Promise<void> {
   const cfg = vscode.workspace.getConfiguration("learnwhile");
   const existing = (await loadConfigFile()) ?? { ...DEFAULT_HOSTED_CONFIG };
-
-  const updated: LearnWhileConfig = {
+  await saveConfigFile({
     ...existing,
     provider: cfg.get<string>("provider") ?? existing.provider,
     model: cfg.get<string>("model") ?? existing.model,
@@ -66,15 +81,26 @@ async function syncConfigFromSettings(): Promise<void> {
     maxTipsPerTurn: cfg.get<number>("maxTipsPerTurn") ?? existing.maxTipsPerTurn,
     enabled: cfg.get<boolean>("enabled") ?? existing.enabled,
     showNotifications: cfg.get<boolean>("showNotifications") ?? existing.showNotifications,
-  };
-
-  await saveConfigFile(updated);
+  });
 }
 
 async function ensureDefaultConfig(): Promise<void> {
   if (!existsSync(CONFIG_PATH)) {
     await saveConfigFile({ ...DEFAULT_HOSTED_CONFIG });
   }
+}
+
+async function refreshStatus(
+  extensionUri: vscode.Uri,
+  panelProvider: LearnPanelProvider,
+  statusBarRefresh: () => void
+): Promise<void> {
+  hookStatus = await getHookInstallStatus();
+  statusBarRefresh();
+  await panelProvider.refresh();
+  outputChannel.appendLine(
+    `Ready: ${hookStatus.appName} | mode=${hookStatus.autoTipsMode} | hooks=${hookStatus.hooksInstalled}`
+  );
 }
 
 async function runSetup(): Promise<void> {
@@ -88,33 +114,19 @@ async function runSetup(): Promise<void> {
     ],
     { placeHolder: "Select LLM provider" }
   );
-
-  if (!provider) {
-    return;
-  }
+  if (!provider) return;
 
   if (provider.value === "hosted") {
-    const config: LearnWhileConfig = { ...DEFAULT_HOSTED_CONFIG };
-    await saveConfigFile(config);
-    const vsConfig = vscode.workspace.getConfiguration("learnwhile");
-    await vsConfig.update("provider", "hosted", vscode.ConfigurationTarget.Global);
-    vscode.window.showInformationMessage(
-      "Learn While Coding ready — using shared hosted API. No API key needed!"
-    );
+    await saveConfigFile({ ...DEFAULT_HOSTED_CONFIG });
+    await vscode.workspace.getConfiguration("learnwhile").update("provider", "hosted", vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage("Learn While Coding ready — hosted API, no key needed.");
     return;
   }
 
-  const apiKey = await vscode.window.showInputBox({
-    prompt: "Enter your API key",
-    password: true,
-    ignoreFocusOut: true,
-  });
+  const apiKey = await vscode.window.showInputBox({ prompt: "API key", password: true, ignoreFocusOut: true });
+  if (!apiKey) return;
 
-  if (!apiKey) {
-    return;
-  }
-
-  const defaultModels: Record<string, string> = {
+  const models: Record<string, string> = {
     groq: "llama-3.3-70b-versatile",
     anthropic: "claude-haiku-4-5",
     openai: "gpt-4o-mini",
@@ -122,179 +134,144 @@ async function runSetup(): Promise<void> {
   };
 
   const model = await vscode.window.showInputBox({
-    prompt: "Model name",
-    value: defaultModels[provider.value],
+    prompt: "Model",
+    value: models[provider.value],
     ignoreFocusOut: true,
   });
 
-  const config: LearnWhileConfig = {
+  await saveConfigFile({
     provider: provider.value,
     apiKey,
-    model: model ?? defaultModels[provider.value],
+    model: model ?? models[provider.value],
     maxTipsPerTurn: 3,
     enabled: true,
     showNotifications: true,
-  };
+  });
 
-  await saveConfigFile(config);
-
-  const vsConfig = vscode.workspace.getConfiguration("learnwhile");
-  await vsConfig.update("provider", config.provider, vscode.ConfigurationTarget.Global);
-  await vsConfig.update("model", config.model, vscode.ConfigurationTarget.Global);
-
-  vscode.window.showInformationMessage(
-    "Learn While Coding configured! Install Cursor/Claude hooks to start receiving tips."
-  );
+  vscode.window.showInformationMessage("Learn While Coding configured.");
 }
 
-let hookStatus: HookInstallStatus = {
-  isCursor: false,
-  hooksInstalled: false,
-  hooksDir: "",
-  configExists: false,
-  sessionsDir: SESSIONS_DIR,
-  sessionCount: 0,
-};
-
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Extension activated (v0.3.4)");
-  outputChannel.appendLine(`Sessions dir: ${SESSIONS_DIR}`);
+  outputChannel.appendLine("Learn While Coding v0.4.0 activated");
 
   const panelProvider = new LearnPanelProvider(context.extensionUri, () => hookStatus);
+  const { item: statusBar, refresh: statusBarRefresh } = createStatusBar(() => hookStatus);
+  context.subscriptions.push(statusBar);
 
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      LearnPanelProvider.viewType,
-      panelProvider,
-      { webviewOptions: { retainContextWhenHidden: true } }
-    )
+    vscode.window.registerWebviewViewProvider(LearnPanelProvider.viewType, panelProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
   );
 
   let lastNotifiedTurnId = "";
 
-  const onNewTips = async (turn: TipTurn): Promise<void> => {
-    await panelProvider.refresh();
-
-    const showNotifications = vscode.workspace
-      .getConfiguration("learnwhile")
-      .get<boolean>("showNotifications", true);
-
-    if (showNotifications && turn.turnId !== lastNotifiedTurnId) {
-      lastNotifiedTurnId = turn.turnId;
-      const count = turn.tips.length;
-      const action = await vscode.window.showInformationMessage(
-        `${count} new concept${count === 1 ? "" : "s"} to learn`,
-        "View Tips"
-      );
-      if (action === "View Tips") {
-        await vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
-      }
-    }
-  };
-
   const watcher = new TipWatcher((turn) => {
-    void onNewTips(turn);
+    void panelProvider.refresh();
+    const show = vscode.workspace.getConfiguration("learnwhile").get<boolean>("showNotifications", true);
+    if (show && turn.turnId !== lastNotifiedTurnId) {
+      lastNotifiedTurnId = turn.turnId;
+      void vscode.window
+        .showInformationMessage(
+          `${turn.tips.length} new concept${turn.tips.length === 1 ? "" : "s"} to learn`,
+          "View Tips"
+        )
+        .then((a) => {
+          if (a === "View Tips") void vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
+        });
+    }
   });
 
   void watcher.start().then(() => panelProvider.refresh());
   context.subscriptions.push({ dispose: () => watcher.dispose() });
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("learnwhile.openPanel", async () => {
-      await vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
-    })
-  );
+  registerAutoCopilotTips(context, () => hookStatus.autoTipsMode);
+
+  registerWorkspaceHookRefresh(context, () => {
+    void refreshStatus(context.extensionUri, panelProvider, statusBarRefresh);
+  });
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("learnwhile.setup", () => runSetup())
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("learnwhile.refresh", () => panelProvider.refresh())
-  );
-
-  context.subscriptions.push(
+    vscode.commands.registerCommand("learnwhile.openPanel", () =>
+      vscode.commands.executeCommand("learnwhile.tipsPanel.focus")
+    ),
+    vscode.commands.registerCommand("learnwhile.setup", () => runSetup()),
+    vscode.commands.registerCommand("learnwhile.refresh", () => panelProvider.refresh()),
     vscode.commands.registerCommand("learnwhile.resetLearned", async () => {
       panelProvider.clearLearned();
       await panelProvider.refresh();
-      vscode.window.showInformationMessage("Learn While Coding: restored all hidden tips");
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("learnwhile.debug", async () => {
-      try {
-        const turns = await readAllLatestTips();
-        const cards = turns.reduce((n, t) => n + t.tips.length, 0);
-        const msg = `Sessions dir: ${SESSIONS_DIR}\nTurns: ${turns.length}\nTip cards: ${cards}`;
-        outputChannel.appendLine(msg);
-        outputChannel.show();
-        await vscode.window.showInformationMessage(
-          `Learn While Coding: ${cards} tips in ${turns.length} sessions`,
-          "Open Output"
-        ).then((action) => {
-          if (action === "Open Output") {
-            outputChannel.show();
-          }
+    }),
+    vscode.commands.registerCommand("learnwhile.installHooks", async () => {
+      const result = await installHooksForEnvironment(context.extensionUri);
+      await refreshStatus(context.extensionUri, panelProvider, statusBarRefresh);
+      if (result.cursor || result.claude) {
+        vscode.window.showInformationMessage(
+          "Hooks installed. Reload the editor, then finish an AI chat turn.",
+          "Reload"
+        ).then((a) => {
+          if (a === "Reload") void vscode.commands.executeCommand("workbench.action.reloadWindow");
         });
-        await panelProvider.refresh();
-      } catch (err) {
-        vscode.window.showErrorMessage(`Learn While Coding debug failed: ${err}`);
+      } else {
+        vscode.window.showWarningMessage("Hook install failed — see Output → Learn While Coding");
       }
+    }),
+    vscode.commands.registerCommand("learnwhile.generateFromEditor", async () => {
+      try {
+        const turn = await generateTipsFromEditor();
+        if (turn) {
+          await panelProvider.refresh();
+          void vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
+        }
+      } catch (err) {
+        vscode.window.showErrorMessage(`Learn While Coding: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }),
+    vscode.commands.registerCommand("learnwhile.debug", async () => {
+      const report = await runHealthCheck(hookStatus);
+      const lines = [
+        `Health: ${report.ok ? "OK" : "ISSUES"}`,
+        `Node: ${report.nodeVersion || "missing"}`,
+        `Mode: ${hookStatus.autoTipsMode}`,
+        `Hooks: ${report.hooksOk}`,
+        ...report.issues.map((i) => `! ${i}`),
+        ...report.tips.map((t) => `→ ${t}`),
+      ];
+      outputChannel.appendLine(lines.join("\n"));
+      outputChannel.show();
+      vscode.window.showInformationMessage(report.ok ? "All checks passed" : `${report.issues.length} issue(s) — see Output`);
+      await panelProvider.refresh();
     })
   );
-
-  context.subscriptions.push(outputChannel);
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("learnwhile")) {
-        void syncConfigFromSettings();
-      }
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("learnwhile.installHooks", async () => {
-      const ok = await installCursorHooks(context.extensionUri);
-      hookStatus = await getHookInstallStatus();
-      await panelProvider.refresh();
-      if (ok) {
-        vscode.window.showInformationMessage(
-          "Learn While Coding hooks installed. Reload Cursor, then finish an Agent turn to see tips."
-        );
-      } else {
-        vscode.window.showWarningMessage(
-          "Could not install hooks. Open Output → Learn While Coding for details."
-        );
-      }
-    })
+      if (e.affectsConfiguration("learnwhile")) void syncConfigFromSettings();
+    }),
+    outputChannel
   );
 
   void (async () => {
+    await mkdir(SESSIONS_DIR, { recursive: true });
     await ensureDefaultConfig();
     await syncConfigFromSettings();
-    hookStatus = await ensureCursorHooks(context.extensionUri);
-    outputChannel.appendLine(
-      `Hook status: cursor=${hookStatus.isCursor} installed=${hookStatus.hooksInstalled} sessions=${hookStatus.sessionCount}`
-    );
+    hookStatus = await ensureHooks(context.extensionUri);
+    statusBarRefresh();
     await panelProvider.refresh();
 
-    if (hookStatus.isCursor && hookStatus.hooksInstalled && hookStatus.sessionCount === 0) {
-      const showNotifications = vscode.workspace
-        .getConfiguration("learnwhile")
-        .get<boolean>("showNotifications", true);
-      if (showNotifications) {
-        vscode.window.showInformationMessage(
-          "Learn While Coding is ready. Finish an Agent turn and learning cards will appear here.",
-          "Open Panel"
-        ).then((action) => {
-          if (action === "Open Panel") {
-            void vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
-          }
-        });
-      }
+    const report = await runHealthCheck(hookStatus);
+    if (!report.ok) {
+      outputChannel.appendLine(`Setup issues: ${report.issues.join("; ")}`);
     }
+
+    const show = vscode.workspace.getConfiguration("learnwhile").get<boolean>("showNotifications", true);
+    if (!show || hookStatus.sessionCount > 0) return;
+
+    const messages: Record<string, string> = {
+      cursor: "Learn While Coding ready — finish a Cursor Agent turn for learning cards.",
+      claude: "Learn While Coding ready — finish a Claude Code turn for learning cards.",
+      manual: "Learn While Coding ready — Copilot tips generate automatically when you save files.",
+    };
+    vscode.window.showInformationMessage(messages[hookStatus.autoTipsMode] ?? "Learn While Coding ready.", "Open Panel");
   })();
 }
 

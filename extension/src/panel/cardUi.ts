@@ -195,33 +195,31 @@ function renderTurnGroup(turn: TipTurn): string {
 
 export function renderTipsContent(turns: TipTurn[], hookStatus?: HookInstallStatus): string {
   if (!turns.length) {
-    const isCursor = hookStatus?.isCursor ?? false;
-    const hooksOk = hookStatus?.hooksInstalled ?? false;
+    const mode = hookStatus?.autoTipsMode ?? "manual";
 
-    if (isCursor && !hooksOk) {
+    if (mode === "cursor") {
       return `<div class="empty-state">
       <div class="empty-icon">◎</div>
-      <h2 class="empty-title">Hooks not installed</h2>
-      <p class="empty-desc">Learning cards need Cursor hooks to capture each Agent turn.</p>
-      <p class="empty-hint">Run command palette → <strong>Learn While Coding: Install Hooks</strong>, then reload Cursor.</p>
-      <p class="empty-hint">Or install the <strong>learn-while-coding</strong> plugin from the Cursor Marketplace.</p>
+      <h2 class="empty-title">Cursor — ready</h2>
+      <p class="empty-desc">Hooks are installed. Finish an <strong>Agent</strong> turn and learning cards appear here automatically.</p>
+      <p class="empty-hint">No cards? Reload Cursor, then run <strong>Install Hooks</strong> once.</p>
     </div>`;
     }
 
-    if (!isCursor) {
+    if (mode === "claude") {
       return `<div class="empty-state">
       <div class="empty-icon">◎</div>
-      <h2 class="empty-title">Use Cursor for auto-tips</h2>
-      <p class="empty-desc">This extension shows learning cards in the sidebar. Tips are generated automatically in <strong>Cursor</strong> after each Agent turn.</p>
-      <p class="empty-hint">Install this extension in Cursor, run <strong>Learn While Coding: Install Hooks</strong>, then chat with the Agent.</p>
+      <h2 class="empty-title">Claude Code — ready</h2>
+      <p class="empty-desc">Hooks are in <code>.claude/settings.json</code>. Finish a Claude turn for automatic learning cards.</p>
+      <p class="empty-hint">Parse error? Reload VS Code and run <strong>Install Hooks</strong>.</p>
     </div>`;
     }
 
     return `<div class="empty-state">
       <div class="empty-icon">◎</div>
-      <h2 class="empty-title">Ready — waiting for your first turn</h2>
-      <p class="empty-desc">Hooks are installed. Finish an Agent turn in Cursor and learning cards will appear here automatically.</p>
-      <p class="empty-hint">Try: ask the Agent to explain or change something in your codebase.</p>
+      <h2 class="empty-title">Copilot — ready</h2>
+      <p class="empty-desc">Tips generate <strong>automatically when you save files</strong> after using Copilot.</p>
+      <p class="empty-hint">Or run <strong>Generate Tips from Editor</strong> anytime from the command palette.</p>
     </div>`;
   }
 
