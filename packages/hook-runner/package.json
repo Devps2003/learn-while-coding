@@ -16,7 +16,7 @@
     "dev": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
-    "@learnwhile/core": "file:../core"
+    "@learnwhile/core": "0.1.0"
   },
   "engines": {
     "node": ">=20"

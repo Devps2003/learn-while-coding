@@ -1,19 +1,23 @@
 {
   "name": "learn-while-coding-marketplace",
   "owner": {
-    "name": "Learn While Coding"
+    "name": "Learn While Coding",
+    "email": "devps2003@gmail.com"
   },
   "metadata": {
-    "description": "Learn engineering concepts while AI-assisted coding"
+    "description": "Learn engineering concepts while AI-assisted coding",
+    "homepage": "https://github.com/Devps2003/learn-while-coding"
   },
   "plugins": [
     {
       "name": "learn-while-coding",
       "source": "plugins/cursor",
       "description": "Cursor hooks that generate learning tips during AI coding sessions",
-      "version": "0.1.0",
+      "version": "0.3.4",
       "license": "MIT",
-      "keywords": ["learning", "education", "ai"]
+      "keywords": ["learning", "education", "ai", "hooks"],
+      "repository": "https://github.com/Devps2003/learn-while-coding",
+      "homepage": "https://github.com/Devps2003/learn-while-coding"
     }
   ]
 }

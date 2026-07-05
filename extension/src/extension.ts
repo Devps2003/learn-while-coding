@@ -5,6 +5,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { LearnPanelProvider, outputChannel } from "./panel/LearnPanelProvider.js";
 import { SESSIONS_DIR, TipWatcher, readAllLatestTips, type TipTurn } from "./watcher/TipWatcher.js";
+import {
+  ensureCursorHooks,
+  getHookInstallStatus,
+  installCursorHooks,
+  type HookInstallStatus,
+} from "./install/HookInstaller.js";
 
 const CONFIG_PATH = join(homedir(), ".learnwhile", "config.json");
 
@@ -141,11 +147,20 @@ async function runSetup(): Promise<void> {
   );
 }
 
+let hookStatus: HookInstallStatus = {
+  isCursor: false,
+  hooksInstalled: false,
+  hooksDir: "",
+  configExists: false,
+  sessionsDir: SESSIONS_DIR,
+  sessionCount: 0,
+};
+
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Extension activated (v0.3.3)");
+  outputChannel.appendLine("Extension activated (v0.3.4)");
   outputChannel.appendLine(`Sessions dir: ${SESSIONS_DIR}`);
 
-  const panelProvider = new LearnPanelProvider(context.extensionUri);
+  const panelProvider = new LearnPanelProvider(context.extensionUri, () => hookStatus);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -239,7 +254,48 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  void ensureDefaultConfig().then(() => syncConfigFromSettings());
+  context.subscriptions.push(
+    vscode.commands.registerCommand("learnwhile.installHooks", async () => {
+      const ok = await installCursorHooks(context.extensionUri);
+      hookStatus = await getHookInstallStatus();
+      await panelProvider.refresh();
+      if (ok) {
+        vscode.window.showInformationMessage(
+          "Learn While Coding hooks installed. Reload Cursor, then finish an Agent turn to see tips."
+        );
+      } else {
+        vscode.window.showWarningMessage(
+          "Could not install hooks. Open Output → Learn While Coding for details."
+        );
+      }
+    })
+  );
+
+  void (async () => {
+    await ensureDefaultConfig();
+    await syncConfigFromSettings();
+    hookStatus = await ensureCursorHooks(context.extensionUri);
+    outputChannel.appendLine(
+      `Hook status: cursor=${hookStatus.isCursor} installed=${hookStatus.hooksInstalled} sessions=${hookStatus.sessionCount}`
+    );
+    await panelProvider.refresh();
+
+    if (hookStatus.isCursor && hookStatus.hooksInstalled && hookStatus.sessionCount === 0) {
+      const showNotifications = vscode.workspace
+        .getConfiguration("learnwhile")
+        .get<boolean>("showNotifications", true);
+      if (showNotifications) {
+        vscode.window.showInformationMessage(
+          "Learn While Coding is ready. Finish an Agent turn and learning cards will appear here.",
+          "Open Panel"
+        ).then((action) => {
+          if (action === "Open Panel") {
+            void vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
+          }
+        });
+      }
+    }
+  })();
 }
 
 export function deactivate(): void {}

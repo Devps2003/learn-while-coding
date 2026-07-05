@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import type { TipTurn } from "../watcher/TipWatcher.js";
 import { SESSIONS_DIR, readAllLatestTips } from "../watcher/TipWatcher.js";
+import type { HookInstallStatus } from "../install/HookInstaller.js";
 import {
   escHtml,
   renderPanelScript,
@@ -16,7 +17,10 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private learnedConcepts = new Set<string>();
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly getHookStatus: () => HookInstallStatus
+  ) {}
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -31,7 +35,7 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this.extensionUri],
     };
 
-    webviewView.webview.html = this.buildHtml([], "Loading tips...");
+    webviewView.webview.html = this.buildHtml([], "Loading tips...", this.getHookStatus());
 
     webviewView.webview.onDidReceiveMessage((msg) => {
       if (msg.type === "ready") {
@@ -84,11 +88,11 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
         `Loaded ${totalCards} tips from ${raw.length} sessions (${SESSIONS_DIR})`
       );
 
-      view.webview.html = this.buildHtml(turns);
+      view.webview.html = this.buildHtml(turns, undefined, this.getHookStatus());
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       outputChannel.appendLine(`ERROR loading tips: ${message}`);
-      view.webview.html = this.buildHtml([], `Error: ${message}`);
+      view.webview.html = this.buildHtml([], `Error: ${message}`, this.getHookStatus());
     }
   }
 
@@ -98,7 +102,7 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
     }
     try {
       const turns = this.filterTurns(await readAllLatestTips());
-      this.view.webview.html = this.buildHtml(turns);
+      this.view.webview.html = this.buildHtml(turns, undefined, this.getHookStatus());
     } catch (err) {
       outputChannel.appendLine(`ERROR pushTips: ${err}`);
     }
@@ -112,8 +116,12 @@ export class LearnPanelProvider implements vscode.WebviewViewProvider {
     this.learnedConcepts.clear();
   }
 
-  private buildHtml(turns: TipTurn[], statusMessage?: string): string {
-    const contentHtml = renderTipsContent(turns);
+  private buildHtml(
+    turns: TipTurn[],
+    statusMessage?: string,
+    hookStatus?: HookInstallStatus
+  ): string {
+    const contentHtml = renderTipsContent(turns, hookStatus);
     const statusHtml = statusMessage
       ? `<div class="status">${escHtml(statusMessage)}</div>`
       : "";

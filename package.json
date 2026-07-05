@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Learn engineering concepts while AI-assisted coding",
   "scripts": {
-    "build": "npm run build --workspaces --if-present 2>/dev/null || (cd packages/core && npx tsc -p tsconfig.json && cd ../hook-runner && npx tsc -p tsconfig.json && cd ../../extension && npm run build)",
+    "build": "npm run build --workspaces --if-present 2>/dev/null || (cd packages/core && npx tsc -p tsconfig.json && cd ../hook-runner && npx tsc -p tsconfig.json && node ../../scripts/build-hook-runner.mjs && cd ../../extension && npm run build)",
     "build:core": "cd packages/core && npx tsc -p tsconfig.json",
     "build:hooks": "cd packages/hook-runner && npx tsc -p tsconfig.json",
     "build:extension": "cd extension && npm run build",

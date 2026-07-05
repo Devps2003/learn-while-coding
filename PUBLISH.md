@@ -39,19 +39,25 @@ npx @vscode/vsce publish -p <YOUR_PAT>
 npx ovsx publish learn-while-coding-0.1.0.vsix -p <OPEN_VSX_TOKEN>
 ```
 
-## Cursor Marketplace
+## Cursor Marketplace (separate from Open VSX)
 
-1. Push repo to public GitHub
-2. Ensure `.cursor-plugin/marketplace.json` and `plugins/cursor/.cursor-plugin/plugin.json` are valid
+**Important:** `ovsx publish` only puts the VS Code **extension** on Open VSX.  
+The **Cursor plugin** (hooks) is a different product and must be submitted separately.
+
+1. Push repo to public GitHub (must include `.cursor-plugin/marketplace.json`)
+2. Ensure `plugins/cursor/.cursor-plugin/plugin.json` and bundled `plugins/cursor/bin/hook-runner.mjs` are committed
 3. Submit at https://cursor.com/marketplace/publish
-4. Checklist:
+4. Wait for manual Cursor team review (typically a few days, not automatic)
+5. Checklist:
    - Open source (MIT)
    - Valid kebab-case plugin name: `learn-while-coding`
    - Logo at `plugins/cursor/assets/logo.svg`
    - README with setup instructions
-   - Hooks tested locally
+   - Hooks tested locally via `~/.cursor/plugins/local`
 
-## Claude Code distribution
+Friends install after approval: Cursor → **Customize** → search **learn-while-coding**
+
+Until the plugin is approved, users can run **Learn While Coding: Install Hooks** from the extension (auto-installs hooks on Cursor).
 
 - Document install via `scripts/install.sh --claude`
 - Users merge `plugins/claude/settings.json` hooks into `~/.claude/settings.json`

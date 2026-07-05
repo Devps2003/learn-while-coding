@@ -28,28 +28,29 @@ flowchart LR
 ### 1. VS Code extension (required for UI)
 
 Install **Learn While Coding** from:
-- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=learnwhile.learn-while-coding)
-- Open VSX (for VSCodium)
-- Works in **Cursor**, **VS Code**, and **Claude Code in VS Code**
+- [Open VSX](https://open-vsx.org/extension/Devps2003/learn-while-coding-extension) (works in Cursor + VS Code)
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Devps2003.learn-while-coding-extension)
+
+In **Cursor**, the extension auto-installs hooks on first launch. You can also run **Learn While Coding: Install Hooks** from the command palette, then reload Cursor.
 
 ### 2. Platform hooks (required for auto-tips)
 
-```bash
-git clone https://github.com/learnwhile/learn-while-coding
-cd learn-while-coding
-chmod +x scripts/install.sh
-./scripts/install.sh
-```
+**Cursor (easiest):** Install the extension above — hooks install automatically.
 
-Or install components separately:
+**Cursor plugin (marketplace):** After approval at [cursor.com/marketplace](https://cursor.com/marketplace), search **learn-while-coding** under Customize → Plugins.
+
+**Manual install:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Devps2003/learn-while-coding/main/scripts/install.sh | bash -s -- --cursor
+```
 
 | Component | Install |
 |-----------|---------|
-| Hook runner | `npm i -g @learnwhile/hook-runner` |
-| Cursor plugin | [Cursor Marketplace](https://cursor.com/marketplace) — search "learn-while-coding" |
+| Cursor plugin | [Cursor Marketplace](https://cursor.com/marketplace) — submit repo, then search **learn-while-coding** |
 | Claude Code | Merge `plugins/claude/settings.json` into `~/.claude/settings.json` |
 
-### 3. Configure API key
+### 3. Configure API key (optional)
 
 Run command palette: **Learn While Coding: Setup API Key**
 
@@ -78,7 +79,7 @@ Or create `~/.learnwhile/config.json`:
 
 | Platform | Auto-tips | Notes |
 |----------|-----------|-------|
-| Cursor | Yes | Install Cursor plugin + extension |
+| Cursor | Yes | Extension auto-installs hooks, or install Cursor plugin |
 | Claude Code (CLI) | Yes | Hooks in `~/.claude/settings.json` |
 | Claude Code (VS Code) | Yes | Same hooks as CLI |
 | VS Code + Copilot | Partial | No chat API — extension UI only; hooks N/A |

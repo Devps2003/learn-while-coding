@@ -12,7 +12,7 @@ resolve_runner() {
   fi
 
   if [ -n "${LEARNWHILE_HOOK_RUNNER:-}" ] && [ -f "${LEARNWHILE_HOOK_RUNNER}" ]; then
-    if [[ "${LEARNWHILE_HOOK_RUNNER}" == *.js ]]; then
+    if [[ "${LEARNWHILE_HOOK_RUNNER}" == *.js ]] || [[ "${LEARNWHILE_HOOK_RUNNER}" == *.mjs ]]; then
       echo "node ${LEARNWHILE_HOOK_RUNNER}"
     else
       echo "${LEARNWHILE_HOOK_RUNNER}"
@@ -20,10 +20,9 @@ resolve_runner() {
     return
   fi
 
-  # Local dev fallback (repo checkout)
-  local repo_runner="/Users/devps/Desktop/ai-learning/packages/hook-runner/dist/cli.js"
-  if [ -f "${repo_runner}" ]; then
-    echo "node ${repo_runner}"
+  local cursor_runner="${HOME}/.cursor/hooks/learnwhile-hook-runner.mjs"
+  if [ -f "${cursor_runner}" ]; then
+    echo "node ${cursor_runner}"
     return
   fi
 

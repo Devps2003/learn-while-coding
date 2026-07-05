@@ -1,12 +1,16 @@
 {
   "name": "learn-while-coding",
-  "version": "0.1.0",
+  "displayName": "Learn While Coding",
+  "version": "0.3.4",
   "description": "Surface engineering concepts to learn during AI-assisted coding sessions",
   "author": {
-    "name": "Learn While Coding"
+    "name": "Learn While Coding",
+    "email": "devps2003@gmail.com"
   },
   "keywords": ["learning", "education", "ai", "hooks"],
   "license": "MIT",
   "logo": "assets/logo.svg",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "repository": "https://github.com/Devps2003/learn-while-coding",
+  "homepage": "https://github.com/Devps2003/learn-while-coding"
 }

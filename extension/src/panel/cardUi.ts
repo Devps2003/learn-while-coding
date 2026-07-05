@@ -1,4 +1,5 @@
 import type { Tip, TipTurn } from "../watcher/TipWatcher.js";
+import type { HookInstallStatus } from "../install/HookInstaller.js";
 import { markdownToHtml } from "./markdown.js";
 
 export function escHtml(s: string): string {
@@ -192,13 +193,35 @@ function renderTurnGroup(turn: TipTurn): string {
   </section>`;
 }
 
-export function renderTipsContent(turns: TipTurn[]): string {
+export function renderTipsContent(turns: TipTurn[], hookStatus?: HookInstallStatus): string {
   if (!turns.length) {
+    const isCursor = hookStatus?.isCursor ?? false;
+    const hooksOk = hookStatus?.hooksInstalled ?? false;
+
+    if (isCursor && !hooksOk) {
+      return `<div class="empty-state">
+      <div class="empty-icon">◎</div>
+      <h2 class="empty-title">Hooks not installed</h2>
+      <p class="empty-desc">Learning cards need Cursor hooks to capture each Agent turn.</p>
+      <p class="empty-hint">Run command palette → <strong>Learn While Coding: Install Hooks</strong>, then reload Cursor.</p>
+      <p class="empty-hint">Or install the <strong>learn-while-coding</strong> plugin from the Cursor Marketplace.</p>
+    </div>`;
+    }
+
+    if (!isCursor) {
+      return `<div class="empty-state">
+      <div class="empty-icon">◎</div>
+      <h2 class="empty-title">Use Cursor for auto-tips</h2>
+      <p class="empty-desc">This extension shows learning cards in the sidebar. Tips are generated automatically in <strong>Cursor</strong> after each Agent turn.</p>
+      <p class="empty-hint">Install this extension in Cursor, run <strong>Learn While Coding: Install Hooks</strong>, then chat with the Agent.</p>
+    </div>`;
+    }
+
     return `<div class="empty-state">
       <div class="empty-icon">◎</div>
-      <h2 class="empty-title">No tips yet</h2>
-      <p class="empty-desc">Finish an Agent turn in Cursor, then tips will appear here automatically.</p>
-      <p class="empty-hint">Or run <strong>Learn While Coding: Refresh Tips</strong></p>
+      <h2 class="empty-title">Ready — waiting for your first turn</h2>
+      <p class="empty-desc">Hooks are installed. Finish an Agent turn in Cursor and learning cards will appear here automatically.</p>
+      <p class="empty-hint">Try: ask the Agent to explain or change something in your codebase.</p>
     </div>`;
   }
 
