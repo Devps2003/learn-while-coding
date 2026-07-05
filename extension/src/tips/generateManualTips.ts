@@ -1,56 +1,7 @@
 import * as vscode from "vscode";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import type { TipTurn } from "../watcher/TipWatcher.js";
+import { apiTipsToTurn, callHostedApi, loadTipConfig, writeTipTurn } from "./tipApi.js";
 import { outputChannel } from "../panel/LearnPanelProvider.js";
-
-const DEFAULT_HOSTED_API_URL = "https://ai-learning-ten-rose.vercel.app/api/tips";
-const DEFAULT_CLIENT_KEY = "learnwhile-v1";
-
-interface LearnWhileConfig {
-  provider: string;
-  apiKey: string;
-  model: string;
-  maxTipsPerTurn: number;
-  enabled: boolean;
-  hostedApiUrl?: string;
-  clientKey?: string;
-}
-
-interface ApiTip {
-  concept: string;
-  summary: string;
-  body?: string;
-  detail?: string;
-  category: string;
-  whyNow: string;
-  whatAiDid?: string;
-  keyPoints?: string[];
-  watchOut?: string;
-  learnMore: string[];
-  depth: string;
-}
-
-async function loadConfig(): Promise<LearnWhileConfig> {
-  const configPath = join(homedir(), ".learnwhile", "config.json");
-  const defaults: LearnWhileConfig = {
-    provider: "hosted",
-    apiKey: "",
-    model: "llama-3.3-70b-versatile",
-    maxTipsPerTurn: 3,
-    enabled: true,
-    hostedApiUrl: DEFAULT_HOSTED_API_URL,
-    clientKey: DEFAULT_CLIENT_KEY,
-  };
-
-  try {
-    const raw = await readFile(configPath, "utf-8");
-    return { ...defaults, ...(JSON.parse(raw) as Partial<LearnWhileConfig>) };
-  } catch {
-    return defaults;
-  }
-}
+import type { TipTurn } from "../watcher/TipWatcher.js";
 
 function workspaceSessionId(): string {
   const folder = vscode.workspace.workspaceFolders?.[0]?.name ?? "workspace";
@@ -85,48 +36,14 @@ async function gatherEditorContext(): Promise<string> {
   }
 
   parts.push(
-    "The developer uses GitHub Copilot or VS Code AI (no chat hooks). Infer 1-2 engineering concepts worth learning from this code context."
+    "The developer uses GitHub Copilot or VS Code AI. Infer 1-2 engineering concepts worth learning from this code context."
   );
 
   return parts.join("\n\n");
 }
 
-async function callHostedApi(config: LearnWhileConfig, prompt: string): Promise<ApiTip[]> {
-  const url = config.hostedApiUrl ?? DEFAULT_HOSTED_API_URL;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (config.clientKey) {
-    headers["X-LearnWhile-Client"] = config.clientKey;
-  }
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      prompt,
-      maxTips: config.maxTipsPerTurn,
-      model: config.model,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Hosted API error ${res.status}: ${await res.text()}`);
-  }
-
-  const data = (await res.json()) as { tips?: ApiTip[] };
-  return Array.isArray(data.tips) ? data.tips : [];
-}
-
-async function writeTipTurn(turn: TipTurn): Promise<void> {
-  const sessionDir = join(homedir(), ".learnwhile", "sessions", turn.sessionId);
-  await mkdir(sessionDir, { recursive: true });
-  const latestPath = join(sessionDir, "latest.json");
-  const tmpPath = `${latestPath}.tmp`;
-  await writeFile(tmpPath, JSON.stringify(turn, null, 2), "utf-8");
-  await rename(tmpPath, latestPath);
-}
-
 export async function generateTipsFromEditor(): Promise<TipTurn | null> {
-  const config = await loadConfig();
+  const config = await loadTipConfig();
   if (!config.enabled) {
     vscode.window.showWarningMessage("Learn While Coding is disabled in settings.");
     return null;
@@ -153,26 +70,7 @@ export async function generateTipsFromEditor(): Promise<TipTurn | null> {
         return null;
       }
 
-      const turn: TipTurn = {
-        sessionId: workspaceSessionId(),
-        turnId: `manual-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        platform: "vscode",
-        tips: tips.map((t) => ({
-          concept: t.concept,
-          summary: t.summary,
-          body: t.body,
-          detail: t.detail,
-          category: t.category,
-          whyNow: t.whyNow,
-          whatAiDid: t.whatAiDid,
-          keyPoints: t.keyPoints,
-          watchOut: t.watchOut,
-          learnMore: t.learnMore ?? [],
-          depth: t.depth,
-        })),
-      };
-
+      const turn = apiTipsToTurn(tips, workspaceSessionId(), "vscode");
       await writeTipTurn(turn);
       outputChannel.appendLine(`Wrote ${turn.tips.length} tips → ${turn.sessionId}`);
       return turn;

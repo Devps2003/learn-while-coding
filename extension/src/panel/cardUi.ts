@@ -209,9 +209,9 @@ export function renderTipsContent(turns: TipTurn[], hookStatus?: HookInstallStat
     if (mode === "claude") {
       return `<div class="empty-state">
       <div class="empty-icon">◎</div>
-      <h2 class="empty-title">Claude Code — ready</h2>
-      <p class="empty-desc">Hooks are in <code>.claude/settings.json</code>. Finish a Claude turn for automatic learning cards.</p>
-      <p class="empty-hint">Parse error? Reload VS Code and run <strong>Install Hooks</strong>.</p>
+      <h2 class="empty-title">Claude Code — watching chats</h2>
+      <p class="empty-desc">We read Claude's transcript files directly (hooks are unreliable in VS Code). Finish a chat turn, wait ~5 seconds, cards appear here.</p>
+      <p class="empty-hint">Make sure you have a <strong>project folder open</strong> in VS Code.</p>
     </div>`;
     }
 

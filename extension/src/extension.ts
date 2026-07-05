@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { LearnPanelProvider, outputChannel } from "./panel/LearnPanelProvider.js";
-import { SESSIONS_DIR, TipWatcher, readAllLatestTips, type TipTurn } from "./watcher/TipWatcher.js";
+import { SESSIONS_DIR, TipWatcher, type TipTurn } from "./watcher/TipWatcher.js";
+import { TranscriptWatcher } from "./watcher/TranscriptWatcher.js";
 import {
   ensureHooks,
   getHookInstallStatus,
@@ -152,7 +153,7 @@ async function runSetup(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Learn While Coding v0.4.0 activated");
+  outputChannel.appendLine("Learn While Coding v0.4.1 activated");
 
   const panelProvider = new LearnPanelProvider(context.extensionUri, () => hookStatus);
   const { item: statusBar, refresh: statusBarRefresh } = createStatusBar(() => hookStatus);
@@ -184,6 +185,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   void watcher.start().then(() => panelProvider.refresh());
   context.subscriptions.push({ dispose: () => watcher.dispose() });
+
+  // VS Code: Claude hooks often don't fire — watch transcript files directly
+  const transcriptWatcher = new TranscriptWatcher((turn) => {
+    void panelProvider.refresh();
+    const show = vscode.workspace.getConfiguration("learnwhile").get<boolean>("showNotifications", true);
+    if (show && turn.turnId !== lastNotifiedTurnId) {
+      lastNotifiedTurnId = turn.turnId;
+      void vscode.window
+        .showInformationMessage(
+          `${turn.tips.length} new concept${turn.tips.length === 1 ? "" : "s"} to learn`,
+          "View Tips"
+        )
+        .then((a) => {
+          if (a === "View Tips") void vscode.commands.executeCommand("learnwhile.tipsPanel.focus");
+        });
+    }
+  });
+  context.subscriptions.push({ dispose: () => transcriptWatcher.dispose() });
 
   registerAutoCopilotTips(context, () => hookStatus.autoTipsMode);
 
@@ -258,6 +277,11 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarRefresh();
     await panelProvider.refresh();
 
+    if (!hookStatus.isCursor) {
+      await transcriptWatcher.start();
+      outputChannel.appendLine("TranscriptWatcher active (VS Code Claude + Copilot fallback)");
+    }
+
     const report = await runHealthCheck(hookStatus);
     if (!report.ok) {
       outputChannel.appendLine(`Setup issues: ${report.issues.join("; ")}`);
@@ -268,7 +292,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const messages: Record<string, string> = {
       cursor: "Learn While Coding ready — finish a Cursor Agent turn for learning cards.",
-      claude: "Learn While Coding ready — finish a Claude Code turn for learning cards.",
+      claude: "Learn While Coding ready — Claude chat is watched automatically. Finish a turn, wait ~5s, cards appear.",
       manual: "Learn While Coding ready — Copilot tips generate automatically when you save files.",
     };
     vscode.window.showInformationMessage(messages[hookStatus.autoTipsMode] ?? "Learn While Coding ready.", "Open Panel");
