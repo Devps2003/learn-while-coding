@@ -109,7 +109,8 @@ export async function runHealthCheck(status: HookInstallStatus): Promise<HealthR
   diagnostics.push(apiResult.detail);
   if (!apiResult.ok) {
     issues.push("Hosted tips API unreachable");
-    tips.push("Groq free tier has daily limits. Run Setup → add your own Groq key for higher quota.");
+    tips.push("Corporate network may block Vercel. Run Setup → add your Groq API key (works without hosted API).");
+    tips.push("Or set VS Code Settings → http.proxy if your company uses a proxy.");
   }
 
   const sessionIds = await listSessionIds();
@@ -127,11 +128,12 @@ export async function runHealthCheck(status: HookInstallStatus): Promise<HealthR
   }
 
   const needsHooks = status.isCursor;
+  const hasGroqFallback = Boolean((await loadTipConfig()).apiKey.trim());
   const ok =
-    issues.length === 0 &&
+    issues.filter((i) => !(hasGroqFallback && i === "Hosted tips API unreachable")).length === 0 &&
     nodeAvailable &&
     runnerOk &&
-    apiResult.ok &&
+    (apiResult.ok || hasGroqFallback) &&
     claudeSettingsValid &&
     (!needsHooks || hooksOk);
 

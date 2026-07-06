@@ -2,7 +2,7 @@
   "name": "learn-while-coding-extension",
   "displayName": "Learn While Coding",
   "description": "Learning cards for Cursor Agent, Claude Code, and Copilot — install and go",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "publisher": "Devps2003",
   "license": "MIT",
   "engines": {
@@ -141,5 +141,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Devps2003/learn-while-coding"
+  },
+  "dependencies": {
+    "https-proxy-agent": "^9.1.0"
   }
 }

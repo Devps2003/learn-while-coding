@@ -153,7 +153,7 @@ async function runSetup(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Learn While Coding v0.4.5 activated");
+  outputChannel.appendLine("Learn While Coding v0.4.6 activated");
 
   const panelProvider = new LearnPanelProvider(context.extensionUri, () => hookStatus);
   const { item: statusBar, refresh: statusBarRefresh } = createStatusBar(() => hookStatus);
