@@ -35,7 +35,7 @@ export async function loadTipConfig(): Promise<LearnWhileConfig> {
   const defaults: LearnWhileConfig = {
     provider: "hosted",
     apiKey: "",
-    model: "llama-3.3-70b-versatile",
+    model: "llama-3.1-8b-instant",
     maxTipsPerTurn: 3,
     enabled: true,
     hostedApiUrl: DEFAULT_HOSTED_API_URL,
@@ -57,22 +57,51 @@ export async function callHostedApi(config: LearnWhileConfig, prompt: string): P
     headers["X-LearnWhile-Client"] = config.clientKey;
   }
 
+  const trimmed = prompt.length > 8000 ? prompt.slice(0, 8000) + "\n...[truncated]" : prompt;
+
   const res = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
-      prompt,
+      prompt: trimmed,
       maxTips: config.maxTipsPerTurn,
-      model: config.model,
     }),
   });
 
+  const body = await res.text();
   if (!res.ok) {
-    throw new Error(`Hosted API error ${res.status}: ${await res.text()}`);
+    throw new Error(`Hosted API error ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  const data = (await res.json()) as { tips?: ApiTip[] };
+  const data = JSON.parse(body) as { tips?: ApiTip[] };
   return Array.isArray(data.tips) ? data.tips : [];
+}
+
+export async function pingHostedApi(config: LearnWhileConfig): Promise<{ ok: boolean; detail: string }> {
+  const base = (config.hostedApiUrl ?? DEFAULT_HOSTED_API_URL).replace(/\/api\/tips\/?$/, "");
+  const url = `${base}/api/health`;
+  const headers: Record<string, string> = {};
+  if (config.clientKey) {
+    headers["X-LearnWhile-Client"] = config.clientKey;
+  }
+
+  try {
+    const res = await fetch(url, { method: "GET", headers });
+    const body = await res.text();
+    if (!res.ok) {
+      return { ok: false, detail: `API ${res.status}: ${body.slice(0, 120)}` };
+    }
+    const data = JSON.parse(body) as { ok?: boolean; keys?: number; message?: string };
+    if (data.ok) {
+      return {
+        ok: true,
+        detail: `API OK (${data.keys ?? "?"} Groq keys, lightweight check — no LLM call)`,
+      };
+    }
+    return { ok: false, detail: body.slice(0, 120) };
+  } catch (err) {
+    return { ok: false, detail: `API unreachable: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }
 
 export async function writeTipTurn(turn: TipTurn): Promise<void> {

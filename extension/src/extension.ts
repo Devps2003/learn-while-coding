@@ -34,7 +34,7 @@ interface LearnWhileConfig {
 const DEFAULT_HOSTED_CONFIG: LearnWhileConfig = {
   provider: "hosted",
   apiKey: "",
-  model: "llama-3.3-70b-versatile",
+  model: "llama-3.1-8b-instant",
   maxTipsPerTurn: 3,
   enabled: true,
   showNotifications: true,
@@ -153,7 +153,7 @@ async function runSetup(): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.appendLine("Learn While Coding v0.4.1 activated");
+  outputChannel.appendLine("Learn While Coding v0.4.4 activated");
 
   const panelProvider = new LearnPanelProvider(context.extensionUri, () => hookStatus);
   const { item: statusBar, refresh: statusBarRefresh } = createStatusBar(() => hookStatus);
@@ -248,16 +248,26 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("learnwhile.debug", async () => {
       const report = await runHealthCheck(hookStatus);
       const lines = [
+        `=== Learn While Coding Debug ===`,
         `Health: ${report.ok ? "OK" : "ISSUES"}`,
         `Node: ${report.nodeVersion || "missing"}`,
         `Mode: ${hookStatus.autoTipsMode}`,
         `Hooks: ${report.hooksOk}`,
+        `API: ${report.apiOk ? "OK" : "FAILED"}`,
+        `Tips in panel: ${report.tipCount} cards from ${report.sessionCount} sessions`,
+        ...report.diagnostics.map((d) => `  ${d}`),
         ...report.issues.map((i) => `! ${i}`),
         ...report.tips.map((t) => `→ ${t}`),
       ];
       outputChannel.appendLine(lines.join("\n"));
       outputChannel.show();
-      vscode.window.showInformationMessage(report.ok ? "All checks passed" : `${report.issues.length} issue(s) — see Output`);
+      vscode.window.showInformationMessage(
+        report.tipCount > 0
+          ? `${report.tipCount} tips loaded — see sidebar`
+          : report.ok
+            ? "All checks passed — finish an AI turn for new tips"
+            : `${report.issues.length} issue(s) — see Output`
+      );
       await panelProvider.refresh();
     })
   );

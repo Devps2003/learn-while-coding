@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import type { HookInstallStatus } from "../install/HookInstaller.js";
 import { RUNNER_NAME } from "../install/hookCommands.js";
+import { readAllLatestTips, listSessionIds } from "../watcher/TipWatcher.js";
+import { getTranscriptDiagnostics } from "../watcher/TranscriptWatcher.js";
+import { loadTipConfig, pingHostedApi } from "../tips/tipApi.js";
 
 export interface HealthReport {
   ok: boolean;
@@ -13,9 +16,13 @@ export interface HealthReport {
   configOk: boolean;
   runnerOk: boolean;
   hooksOk: boolean;
+  apiOk: boolean;
   claudeSettingsValid: boolean;
+  sessionCount: number;
+  tipCount: number;
   issues: string[];
   tips: string[];
+  diagnostics: string[];
 }
 
 function tryNodeVersion(): string {
@@ -39,9 +46,15 @@ async function validateJsonFile(path: string): Promise<boolean> {
   }
 }
 
+async function testHostedApi(): Promise<{ ok: boolean; detail: string }> {
+  const config = await loadTipConfig();
+  return pingHostedApi(config);
+}
+
 export async function runHealthCheck(status: HookInstallStatus): Promise<HealthReport> {
   const issues: string[] = [];
   const tips: string[] = [];
+  const diagnostics: string[] = [];
 
   const nodeVersion = tryNodeVersion();
   const nodeAvailable = Boolean(nodeVersion);
@@ -83,24 +96,58 @@ export async function runHealthCheck(status: HookInstallStatus): Promise<HealthR
     tips.push("Reload Cursor — hooks auto-install on startup.");
   }
 
-  if (status.isVsCode && !status.claudeHooksInstalled) {
-    issues.push("Claude Code hooks not installed.");
-    tips.push("Open a project folder, then run Install Hooks.");
+  // VS Code Claude uses TranscriptWatcher — hooks are optional
+  if (status.isVsCode && !status.isCursor && !status.claudeHooksInstalled) {
+    tips.push("Claude hooks not installed — using transcript file watcher instead (normal for VS Code).");
   }
 
   if (status.autoTipsMode === "manual") {
     tips.push("Copilot mode: tips auto-generate on file save, or run Generate Tips from Editor.");
   }
 
+  const apiResult = await testHostedApi();
+  diagnostics.push(apiResult.detail);
+  if (!apiResult.ok) {
+    issues.push("Hosted tips API unreachable");
+    tips.push("Groq free tier has daily limits. Run Setup → add your own Groq key for higher quota.");
+  }
+
+  const sessionIds = await listSessionIds();
+  const allTurns = await readAllLatestTips();
+  const tipCount = allTurns.reduce((n, t) => n + t.tips.length, 0);
+  diagnostics.push(`Sessions with tips: ${allTurns.length}/${sessionIds.length} (${tipCount} cards total)`);
+
+  if (status.isVsCode && !status.isCursor) {
+    const transcriptLines = await getTranscriptDiagnostics();
+    diagnostics.push(...transcriptLines);
+    if (transcriptLines.some((l) => l.includes("NOT FOUND"))) {
+      issues.push("Claude transcript project dir not found for this workspace");
+      tips.push("Open the same folder you use with Claude Code, then chat once to create transcripts.");
+    }
+  }
+
+  const needsHooks = status.isCursor;
+  const ok =
+    issues.length === 0 &&
+    nodeAvailable &&
+    runnerOk &&
+    apiResult.ok &&
+    claudeSettingsValid &&
+    (!needsHooks || hooksOk);
+
   return {
-    ok: issues.length === 0 && nodeAvailable && runnerOk && hooksOk && claudeSettingsValid,
+    ok,
     nodeAvailable,
     nodeVersion,
     configOk,
     runnerOk,
     hooksOk,
+    apiOk: apiResult.ok,
     claudeSettingsValid,
+    sessionCount: sessionIds.length,
+    tipCount,
     issues,
     tips,
+    diagnostics,
   };
 }

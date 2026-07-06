@@ -13,7 +13,7 @@ fi
 echo "=== Deploy Learn While Coding API to Vercel ==="
 echo ""
 echo "You will be prompted to set environment variables if not already set:"
-echo "  GROQ_API_KEY          — your Groq API key (server-side only)"
+echo "  GROQ_API_KEYS         — comma-separated Groq keys (429 rotates to next)"
 echo "  LEARNWHILE_CLIENT_KEY — learnwhile-v1 (blocks random abuse)"
 echo ""
 

@@ -1,5 +1,11 @@
 {
   "version": 2,
-  "builds": [{ "src": "api/tips.js", "use": "@vercel/node" }],
-  "routes": [{ "src": "/api/tips", "dest": "/api/tips.js" }]
+  "builds": [
+    { "src": "api/tips.js", "use": "@vercel/node" },
+    { "src": "api/health.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/health", "dest": "/api/health.js" },
+    { "src": "/api/tips", "dest": "/api/tips.js" }
+  ]
 }
